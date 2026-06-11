@@ -12,10 +12,17 @@ def get_timestamp():
 
 
 def get_storage_dir():
-    """Returns the data/findings directory, creates it if needed"""
-    storage_dir = os.path.join(
-        os.path.dirname(__file__), '..', 'data', 'findings'
-    )
+    """
+    Returns the data/findings directory, creates it if needed.
+    Respects FINDINGS_DIR env var so CI can override the path
+    when running from a different working directory.
+    """
+    if os.environ.get('FINDINGS_DIR'):
+        storage_dir = os.environ['FINDINGS_DIR']
+    else:
+        storage_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'findings'
+        )
     os.makedirs(storage_dir, exist_ok=True)
     return storage_dir
 
