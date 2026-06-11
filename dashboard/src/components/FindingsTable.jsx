@@ -121,6 +121,24 @@ function FPIcon() {
     </svg>
   );
 }
+function GitIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <line x1="3" y1="12" x2="9" y2="12" />
+      <line x1="15" y1="12" x2="21" y2="12" />
+    </svg>
+  );
+}
 
 const fieldStyle = {
   backgroundColor: "var(--bg-hover)",
@@ -410,6 +428,7 @@ export default function FindingsTable() {
                   "Assignee",
                   "SLA",
                   "Due",
+                  "Commit",
                 ].map((h) => (
                   <th
                     key={h}
@@ -428,7 +447,7 @@ export default function FindingsTable() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     style={{ color: "var(--text-muted)" }}
                     className="px-4 py-10 text-center text-sm"
                   >
@@ -454,7 +473,7 @@ export default function FindingsTable() {
               ) : findings.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     style={{ color: "var(--text-muted)" }}
                     className="px-4 py-10 text-center text-sm"
                   >
@@ -574,6 +593,46 @@ export default function FindingsTable() {
                         className="px-4 py-3 text-xs whitespace-nowrap"
                       >
                         {formatDate(f.due_date)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {f.ci_short_sha ? (
+                          <div>
+                            <a
+                              href={`https://github.com/${process.env.REACT_APP_TARGET_REPO}/commit/${f.ci_commit_sha}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ color: "var(--accent)" }}
+                              className="inline-flex items-center gap-1 font-mono text-[11px] hover:underline"
+                            >
+                              <GitIcon />
+                              {f.ci_short_sha}
+                            </a>
+                            <div
+                              style={{ color: "var(--text-muted)" }}
+                              className="text-[11px] mt-0.5 truncate max-w-[120px]"
+                              title={f.ci_message}
+                            >
+                              {f.ci_message
+                                ? f.ci_message.slice(0, 40) +
+                                  (f.ci_message.length > 40 ? "…" : "")
+                                : ""}
+                            </div>
+                            <div
+                              style={{ color: "var(--text-muted)" }}
+                              className="text-[10px] mt-0.5 truncate max-w-[120px]"
+                            >
+                              {f.ci_author ? f.ci_author.split("@")[0] : ""}
+                            </div>
+                          </div>
+                        ) : (
+                          <span
+                            style={{ color: "var(--text-muted)" }}
+                            className="text-[11px]"
+                          >
+                            —
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

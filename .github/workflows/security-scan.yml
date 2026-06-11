@@ -1,183 +1,127 @@
 # .github/workflows/security-scan.yml
-# SecurePipeline Hub — Security scan on every push and PR.
-# Runs Semgrep, Gitleaks, and Trivy on src/, passes outputs
-# through the processing pipeline, commits findings back to
-# the repo, and blocks the PR if CRITICAL findings are found.
+# SecurePipeline Hub — scans a target repo on every push/PR.
+# Checks out the TARGET repo at the triggering commit SHA,
+# runs Semgrep + Gitleaks + Trivy, passes findings through
+# the processing pipeline, commits findings back, and blocks
+# the PR if CRITICAL findings are detected.
 
 name: Security Scan
 
 on:
   push:
     branches: [main]
-    # Skip the workflow when CI itself commits findings back —
-    # prevents the infinite loop of commit → scan → commit → scan
     paths-ignore:
-      - "data/findings/**"
+      - "data/findings/**" # never trigger on findings commits (prevents loop)
   pull_request:
     branches: [main]
 
 permissions:
-  contents: write # needed to commit findings back
-  pull-requests: write # needed to post PR comments
+  contents: write
+  pull-requests: write
 
 jobs:
   security-scan:
-    name: Run Security Scanners
+    name: Scan Commit
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Checkout ───────────────────────────────────────────
-      - name: Checkout repository
+      # ── 1. Checkout THIS repo (SecurePipeline Hub) ────────────
+      - name: Checkout SecurePipeline Hub
         uses: actions/checkout@v4
         with:
-          # Full history so git blame in ownership_engine works
           fetch-depth: 0
-          # Use a token that can push commits back
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # ── 2. Python setup ───────────────────────────────────────
+      # ── 2. Python + dependencies ──────────────────────────────
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt python-dotenv
 
-      # ── 3. Create output directory for scanner results ────────
-      - name: Create scanner output directory
-        run: mkdir -p scanner-outputs
+      # ── 3. Install scanners ───────────────────────────────────
+      - name: Install Semgrep
+        run: pip install semgrep --quiet
 
-      # ── 4. Semgrep ────────────────────────────────────────────
-      - name: Run Semgrep
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/python
-            p/secrets
-            p/owasp-top-ten
-        env:
-          # Run in CI mode — write JSON output to file
-          SEMGREP_SEND_METRICS: off
-        # Semgrep action doesn't write a file by default, so we
-        # run it again in the next step with --json to get the file
-        continue-on-error: true
-
-      - name: Export Semgrep results to JSON
+      - name: Install Gitleaks
         run: |
-          pip install semgrep --quiet
-          semgrep scan src/ \
-            --config p/python \
-            --config p/secrets \
-            --config p/owasp-top-ten \
-            --json \
-            --output scanner-outputs/semgrep.json \
-            --quiet || true
-          # Always exit 0 — we handle severity gating ourselves
-          echo "Semgrep done"
-
-      # ── 5. Gitleaks ───────────────────────────────────────────
-      - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-        continue-on-error: true
-
-      - name: Export Gitleaks results to JSON
-        run: |
-          # Install gitleaks CLI directly
           curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz \
             | tar -xz -C /usr/local/bin gitleaks
-          gitleaks detect \
-            --source . \
-            --config scanners/gitleaks.toml \
-            --report-format json \
-            --report-path scanner-outputs/gitleaks.json \
-            --exit-code 0 || true
-          echo "Gitleaks done"
+          gitleaks version
 
-      # ── 6. Trivy ──────────────────────────────────────────────
-      - name: Run Trivy on src/src_requirements.txt
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: "fs"
-          scan-ref: "src/"
-          format: "json"
-          output: "scanner-outputs/trivy.json"
-          exit-code: "0" # we gate on CRITICAL ourselves
-          severity: "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL"
-        continue-on-error: true
-
-      # ── 7. List scanner outputs (debug) ───────────────────────
-      - name: Show scanner output files
+      - name: Install Trivy
         run: |
-          echo "Scanner outputs:"
-          ls -lh scanner-outputs/ || echo "  (no files)"
-          for f in scanner-outputs/*.json; do
-            [ -f "$f" ] && echo "  $f: $(wc -l < $f) lines"
-          done
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin
+          trivy --version
 
-      # ── 8. Run processing pipeline ────────────────────────────
-      - name: Run SecurePipeline Hub processing chain
+      # ── 4. Clone the TARGET repo ──────────────────────────────
+      # TARGET_REPO_URL is set as a GitHub Actions secret so the
+      # URL (including any PAT for private repos) is never exposed.
+      # Format for private repo: https://<PAT>@github.com/user/repo.git
+      # Format for public repo:  https://github.com/user/repo.git
+      - name: Clone target repository
+        run: |
+          git clone "${{ secrets.TARGET_REPO_URL }}" .repo_cache --quiet
+          echo "Cloned successfully"
+          echo "Commits available: $(git -C .repo_cache log --oneline | wc -l)"
+
+      # ── 5. Run pipeline on the triggering commit ──────────────
+      - name: Run SecurePipeline Hub on commit
         id: pipeline
         env:
           FINDINGS_DIR: ${{ github.workspace }}/data/findings
         run: |
-          python processing/ci_runner.py \
-            --semgrep  scanner-outputs/semgrep.json \
-            --gitleaks scanner-outputs/gitleaks.json \
-            --trivy    scanner-outputs/trivy.json \
-            --sha      ${{ github.sha }}
-        # Don't fail the step here — we check exit code below
-        # so that the commit + comment steps still run first
+          python processing/commit_scanner.py \
+            --sha      "${{ github.sha }}" \
+            --repo-dir ".repo_cache"
         continue-on-error: true
 
-      # ── 9. Commit findings back to repo ───────────────────────
-      - name: Commit findings to repository
+      # ── 6. Commit findings back to this repo ──────────────────
+      - name: Commit findings to SecurePipeline Hub
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add data/findings/
 
-          # Only commit if there are actual changes
           if git diff --cached --quiet; then
-            echo "No changes to findings — skipping commit"
+            echo "No new findings — nothing to commit"
           else
-            SHORT_SHA="${{ github.sha }}"
-            SHORT_SHA="${SHORT_SHA:0:8}"
-            git commit -m "ci: security scan findings for ${SHORT_SHA} [ci skip]"
+            SHORT="${{ github.sha }}"
+            SHORT="${SHORT:0:8}"
+            git commit -m "ci: findings for ${SHORT} [ci skip]"
             git push
           fi
 
-      # ── 10. Post PR comment ───────────────────────────────────
-      - name: Post PR comment with scan summary
+      # ── 7. Post PR comment ────────────────────────────────────
+      - name: Post PR comment
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          SHORT_SHA="${{ github.sha }}"
-          SHORT_SHA="${SHORT_SHA:0:8}"
-          SUMMARY_FILE="data/findings/ci_summary_${SHORT_SHA}.json"
+          SHORT="${{ github.sha }}"
+          SHORT="${SHORT:0:8}"
+          SUMMARY="data/findings/ci_summary_${SHORT}.json"
 
-          if [ -f "$SUMMARY_FILE" ]; then
+          if [ -f "$SUMMARY" ]; then
             python scripts/post_pr_comment.py \
-              --summary "$SUMMARY_FILE" \
+              --summary "$SUMMARY" \
               --repo    "${{ github.repository }}" \
-              --pr      "${{ github.event.pull_request.number }}" \
-              --token   "$GITHUB_TOKEN"
+              --pr      "${{ github.event.pull_request.number }}"
           else
-            echo "Summary file not found: $SUMMARY_FILE — skipping comment"
+            echo "No summary file found — skipping comment"
           fi
 
-      # ── 11. Gate on CRITICAL findings ─────────────────────────
+      # ── 8. Block PR on CRITICAL findings ─────────────────────
       - name: Fail if CRITICAL findings detected
         if: steps.pipeline.outcome == 'failure'
         run: |
           echo ""
           echo "=================================================="
           echo "  PR BLOCKED — CRITICAL security findings found"
-          echo "  Fix all CRITICAL findings and push again."
+          echo "  Resolve all CRITICAL findings and push again."
           echo "=================================================="
           exit 1
