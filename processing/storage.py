@@ -50,13 +50,19 @@ def save_findings(findings, pipeline_run_id=None):
 def load_all_findings():
     """
     Load all findings from all pipeline runs.
-    Returns a flat list of all findings sorted by risk_score descending.
+    Deduplicates by finding ID — newest file wins, preserving the most
+    recent state (resolved, false_positive, comments, etc).
+    Returns a flat list sorted by risk_score descending.
     """
     storage_dir = get_storage_dir()
-    all_findings = []
 
     if not os.path.exists(storage_dir):
         return []
+
+    # Process files newest-first so the first time we see an ID it's
+    # the most up-to-date copy. Older duplicates are skipped.
+    seen_ids = set()
+    all_findings = []
 
     for filename in sorted(os.listdir(storage_dir), reverse=True):
         if filename.startswith('findings_') and filename.endswith('.json'):
@@ -64,7 +70,11 @@ def load_all_findings():
             try:
                 with open(filepath, encoding='utf-8') as f:
                     data = json.load(f)
-                all_findings.extend(data.get('findings', []))
+                for finding in data.get('findings', []):
+                    fid = finding.get('id')
+                    if fid and fid not in seen_ids:
+                        seen_ids.add(fid)
+                        all_findings.append(finding)
             except Exception as e:
                 print(f"[WARN] Could not load {filename}: {e}")
 
@@ -79,14 +89,20 @@ def query_findings(
     priority=None,
     assignee=None,
     sla_status=None,
+    include_false_positives=False,
     limit=100,
     offset=0
 ):
     """
     Query findings with optional filters.
-    Used by the Sprint 3 Flask API.
+    False positives are excluded by default unless include_false_positives=True.
+    Used by the Flask API.
     """
     findings = load_all_findings()
+
+    # Exclude false positives by default
+    if not include_false_positives:
+        findings = [f for f in findings if not f.get('false_positive', False)]
 
     # Apply filters
     if severity:
@@ -113,8 +129,11 @@ def query_findings(
 def get_stats():
     """
     Generate aggregated statistics for the Flask API /stats endpoint.
+    False positives are excluded from all counts so dashboard numbers
+    reflect only genuine findings.
     """
-    findings = load_all_findings()
+    # Reuse query_findings with no filters so FP exclusion is consistent
+    findings, _ = query_findings(limit=100_000)
 
     if not findings:
         return {
@@ -164,8 +183,10 @@ def get_stats():
 def get_compliance_status():
     """
     Generate OWASP Top 10 compliance status for the /compliance endpoint.
+    False positives are excluded so coverage reflects genuine findings only.
     """
-    findings = load_all_findings()
+    # Reuse query_findings so FP exclusion is consistent
+    findings, _ = query_findings(limit=100_000)
 
     all_categories = [
         "A01:2021 - Broken Access Control",

@@ -1,40 +1,406 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
-import { getFinding, updateFinding } from "../api";
+import { useNavigate, useParams } from "react-router-dom";
+import { getFinding, updateFinding, addComment } from "../api";
 
-function badgeClassBySeverity(severity) {
+function sevBadgeClass(severity) {
   const s = (severity ?? "").toUpperCase();
-  if (s === "CRITICAL") return "bg-red-700 text-white";
-  if (s === "HIGH") return "bg-red-500 text-white";
-  if (s === "MEDIUM") return "bg-orange-400 text-white";
-  if (s === "LOW") return "bg-yellow-400 text-black";
-  if (s === "INFO") return "bg-gray-400 text-white";
-  return "bg-gray-200 text-gray-800";
+  if (s === "CRITICAL")
+    return "bg-rose-500/10 text-rose-400 border border-rose-500/25 ring-1 ring-inset ring-rose-500/10";
+  if (s === "HIGH")
+    return "bg-orange-500/10 text-orange-400 border border-orange-500/25";
+  if (s === "MEDIUM")
+    return "bg-yellow-500/10 text-yellow-400 border border-yellow-500/25";
+  if (s === "LOW")
+    return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25";
+  return "bg-slate-500/10 text-slate-400 border border-slate-500/25";
 }
 
-function statusBadgeClass(slaStatus) {
+function slaBadgeClass(slaStatus) {
   const s = (slaStatus ?? "").toUpperCase();
-  if (s === "OVERDUE") return "bg-red-100 text-red-700 border border-red-300";
-  if (s === "OPEN") return "bg-green-100 text-green-700";
-  if (s === "NO_SLA") return "bg-gray-100 text-gray-600";
-  if (s === "RESOLVED") return "bg-green-100 text-green-700";
-  if (s === "WARNING") return "bg-orange-100 text-orange-700 border border-orange-200";
-  return "bg-gray-100 text-gray-600";
+  if (s === "OVERDUE")
+    return "bg-rose-500/10 text-rose-400 border border-rose-500/25";
+  if (s === "OPEN")
+    return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/25";
+  if (s === "RESOLVED")
+    return "bg-blue-500/10 text-blue-400 border border-blue-500/25";
+  if (s === "WARNING")
+    return "bg-yellow-500/10 text-yellow-400 border border-yellow-500/25";
+  return "bg-slate-500/10 text-slate-400 border border-slate-500/25";
 }
 
 function formatDate(iso) {
-  if (!iso) return "-";
+  if (!iso) return "—";
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleString();
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("en-IE", { dateStyle: "medium", timeStyle: "short" });
 }
+
+function formatRelative(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const diff = Date.now() - d.getTime();
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  if (days < 7) return `${days}d ago`;
+  return formatDate(iso);
+}
+
+function BackIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+function CheckIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+function FPIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+    </svg>
+  );
+}
+function SendIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+function UserIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+function SpinnerIcon() {
+  return (
+    <svg
+      className="animate-spin"
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function FieldLabel({ children }) {
+  return (
+    <div
+      style={{ color: "var(--text-muted)", letterSpacing: "0.07em" }}
+      className="text-[11px] font-medium uppercase mb-1"
+    >
+      {children}
+    </div>
+  );
+}
+
+function SectionTitle({ children }) {
+  return (
+    <h3
+      style={{ color: "var(--text-primary)", letterSpacing: "-0.01em" }}
+      className="text-[13px] font-semibold mb-3"
+    >
+      {children}
+    </h3>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Comments section
+// ─────────────────────────────────────────────
+const DEFAULT_AUTHOR = "sahil@securepipeline.dev";
+
+function CommentsSection({ findingId, initialComments }) {
+  const [comments, setComments] = useState(initialComments ?? []);
+  const [text, setText] = useState("");
+  const [author, setAuthor] = useState(DEFAULT_AUTHOR);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  const handleSubmit = async () => {
+    const trimmed = text.trim();
+    const trimmedAuthor = author.trim();
+    if (!trimmed || !trimmedAuthor) return;
+    setSubmitting(true);
+    setSubmitError("");
+    try {
+      const newComment = await addComment(findingId, {
+        text: trimmed,
+        author: trimmedAuthor,
+      });
+      setComments((prev) => [...prev, newComment]);
+      setText("");
+    } catch (e) {
+      setSubmitError(e?.message ?? "Failed to post comment.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    // Ctrl+Enter or Cmd+Enter to submit
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  const charsLeft = 2000 - text.length;
+
+  return (
+    <div className="card p-5">
+      <div className="flex items-center justify-between mb-4">
+        <SectionTitle>
+          Comments
+          {comments.length > 0 && (
+            <span
+              style={{ color: "var(--text-muted)", fontWeight: 400 }}
+              className="ml-2 text-[12px]"
+            >
+              ({comments.length})
+            </span>
+          )}
+        </SectionTitle>
+      </div>
+
+      {/* Comment list */}
+      {comments.length === 0 ? (
+        <div
+          style={{
+            color: "var(--text-muted)",
+            borderColor: "var(--border-subtle)",
+          }}
+          className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm"
+        >
+          No comments yet. Be the first to add a note.
+        </div>
+      ) : (
+        <div className="mb-5 space-y-3">
+          {comments.map((c) => (
+            <div
+              key={c.id}
+              style={{
+                backgroundColor: "var(--bg-hover)",
+                border: "1px solid var(--border)",
+              }}
+              className="rounded-lg p-3.5"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    style={{
+                      backgroundColor: "var(--accent-glow)",
+                      color: "var(--accent)",
+                      border: "1px solid rgba(79,142,247,0.2)",
+                    }}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold shrink-0"
+                  >
+                    {(c.author ?? "?")[0].toUpperCase()}
+                  </span>
+                  <span
+                    style={{ color: "var(--text-primary)" }}
+                    className="text-[13px] font-medium"
+                  >
+                    {c.author}
+                  </span>
+                </div>
+                <span
+                  style={{ color: "var(--text-muted)" }}
+                  className="text-[11px] shrink-0"
+                  title={formatDate(c.created_at)}
+                >
+                  {formatRelative(c.created_at)}
+                </span>
+              </div>
+              <p
+                style={{ color: "var(--text-secondary)" }}
+                className="text-[13px] leading-relaxed whitespace-pre-wrap"
+              >
+                {c.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* New comment form */}
+      <div
+        style={{ border: "1px solid var(--border)", borderRadius: 10 }}
+        className="overflow-hidden"
+      >
+        {/* Author row */}
+        <div
+          style={{
+            borderBottom: "1px solid var(--border)",
+            backgroundColor: "var(--bg-hover)",
+          }}
+          className="flex items-center gap-2 px-3 py-2"
+        >
+          <span style={{ color: "var(--text-muted)" }}>
+            <UserIcon />
+          </span>
+          <input
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            placeholder="Your name or email"
+            style={{
+              backgroundColor: "transparent",
+              color: "var(--text-primary)",
+              fontSize: 12,
+              outline: "none",
+              fontFamily: "var(--font-sans)",
+              width: "100%",
+            }}
+          />
+        </div>
+
+        {/* Textarea */}
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Add a note, observation, or action taken…"
+          rows={3}
+          maxLength={2000}
+          style={{
+            backgroundColor: "var(--bg-card)",
+            color: "var(--text-primary)",
+            fontSize: 13,
+            outline: "none",
+            fontFamily: "var(--font-sans)",
+            resize: "vertical",
+            width: "100%",
+            padding: "10px 12px",
+            lineHeight: 1.6,
+          }}
+        />
+
+        {/* Footer row */}
+        <div
+          style={{
+            borderTop: "1px solid var(--border)",
+            backgroundColor: "var(--bg-hover)",
+          }}
+          className="flex items-center justify-between px-3 py-2"
+        >
+          <span
+            style={{ color: charsLeft < 100 ? "#f97316" : "var(--text-muted)" }}
+            className="text-[11px]"
+          >
+            {charsLeft < 2000
+              ? `${charsLeft} chars left`
+              : "Ctrl+Enter to submit"}
+          </span>
+
+          <div className="flex items-center gap-2">
+            {submitError && (
+              <span className="text-[11px] text-rose-400">{submitError}</span>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={submitting || !text.trim() || !author.trim()}
+              style={{
+                background: "linear-gradient(135deg, #1d4ed8, #1e40af)",
+                border: "1px solid #2563eb",
+                color: "#fff",
+              }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold disabled:opacity-40 transition-all hover:opacity-90"
+            >
+              {submitting ? (
+                <>
+                  <SpinnerIcon /> Posting…
+                </>
+              ) : (
+                <>
+                  <SendIcon /> Post
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Main component
+// ─────────────────────────────────────────────
 
 export default function FindingDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [finding, setFinding] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [savingResolved, setSavingResolved] = useState(false);
+  const [savingFP, setSavingFP] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -65,7 +431,7 @@ export default function FindingDetail() {
 
   const markResolved = async () => {
     if (!finding) return;
-    setSaving(true);
+    setSavingResolved(true);
     setError("");
     try {
       const updated = await updateFinding(id, { sla_status: "RESOLVED" });
@@ -73,188 +439,369 @@ export default function FindingDetail() {
     } catch (e) {
       setError(e?.message ?? "Failed to mark as resolved.");
     } finally {
-      setSaving(false);
+      setSavingResolved(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="rounded-lg border bg-white p-6">
-        <div className="text-sm text-gray-600">Loading finding...</div>
-      </div>
-    );
-  }
+  const toggleFalsePositive = async () => {
+    if (!finding) return;
+    setSavingFP(true);
+    setError("");
+    try {
+      const updated = await updateFinding(id, {
+        false_positive: !finding.false_positive,
+      });
+      setFinding(updated);
+    } catch (e) {
+      setError(e?.message ?? "Failed to update false positive status.");
+    } finally {
+      setSavingFP(false);
+    }
+  };
 
-  if (error) {
+  if (loading)
     return (
-      <div className="rounded-lg border bg-white p-6">
-        <div className="text-sm text-red-700">{error}</div>
+      <div className="card p-8 text-center">
+        <span
+          style={{ color: "var(--text-muted)" }}
+          className="inline-flex items-center gap-2 text-sm"
+        >
+          <SpinnerIcon /> Loading finding…
+        </span>
       </div>
     );
-  }
 
-  if (!finding) {
+  if (error && !finding)
     return (
-      <div className="rounded-lg border bg-white p-6">
-        <div className="text-sm text-gray-600">Finding not found.</div>
+      <div className="card p-5 bg-rose-500/8 border-rose-500/20">
+        <p className="text-rose-400 text-sm">{error}</p>
       </div>
     );
-  }
+
+  if (!finding)
+    return (
+      <div className="card p-8 text-center">
+        <span style={{ color: "var(--text-muted)" }} className="text-sm">
+          Finding not found.
+        </span>
+      </div>
+    );
+
+  const isResolved = (finding.sla_status ?? "").toUpperCase() === "RESOLVED";
+  const isFP = finding.false_positive === true;
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-lg border bg-white p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <h1 className="truncate text-xl font-semibold text-gray-900">
+    <div className="space-y-5 fade-up">
+      {/* Back */}
+      <button
+        onClick={() => navigate(-1)}
+        style={{
+          color: "var(--text-secondary)",
+          border: "1px solid var(--border)",
+        }}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-transparent px-3 py-1.5 text-xs font-medium hover:text-[#c8d4f0] hover:border-[#2a4070] transition-all"
+      >
+        <BackIcon /> Back
+      </button>
+
+      {/* False positive banner */}
+      {isFP && (
+        <div className="rounded-xl border border-yellow-500/25 bg-yellow-500/8 px-4 py-3 flex items-center gap-2.5">
+          <span style={{ color: "#fbbf24" }}>
+            <FPIcon />
+          </span>
+          <div>
+            <div className="text-[13px] font-semibold text-yellow-400">
+              Marked as False Positive
+            </div>
+            {finding.false_positive_at && (
+              <div className="text-[11px] text-yellow-400/60 mt-0.5">
+                Flagged on {formatDate(finding.false_positive_at)}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Header card */}
+      <div
+        className="card p-5"
+        style={
+          isFP ? { opacity: 0.7, borderColor: "rgba(251,191,36,0.2)" } : {}
+        }
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <h1
+              style={{ color: "var(--text-primary)", letterSpacing: "-0.02em" }}
+              className={`text-xl font-semibold leading-snug ${isFP ? "line-through opacity-60" : ""}`}
+            >
               {finding.title}
             </h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <span
-                className={`inline-flex items-center rounded px-3 py-1 text-xs font-semibold ${badgeClassBySeverity(
-                  finding.severity
-                )}`}
+                className={`inline-flex items-center rounded-md px-2.5 py-1 text-[12px] font-semibold tracking-wide ${sevBadgeClass(finding.severity)}`}
               >
                 {finding.severity}
               </span>
-              <span className="text-xs text-gray-600">
-                Risk Score:{" "}
-                <span className="font-semibold text-gray-900">
+              <span style={{ color: "var(--text-muted)" }} className="text-xs">
+                Risk Score{" "}
+                <span
+                  style={{
+                    color: "var(--text-primary)",
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                  className="font-bold text-[15px]"
+                >
                   {finding.risk_score}
                 </span>
               </span>
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:items-end">
-            <span className={`inline-flex items-center rounded px-3 py-1 text-xs font-semibold ${statusBadgeClass(
-              finding.sla_status
-            )}`}>
+          <div className="flex flex-col gap-2 sm:items-end shrink-0">
+            <span
+              className={`inline-flex items-center rounded-md px-2.5 py-1 text-[12px] font-semibold ${slaBadgeClass(finding.sla_status)}`}
+            >
               {finding.sla_status}
             </span>
-
-            <div className="text-xs text-gray-600">
+            <div style={{ color: "var(--text-muted)" }} className="text-xs">
               Due:{" "}
-              <span className="font-medium text-gray-900">
+              <span
+                style={{ color: "var(--text-secondary)" }}
+                className="font-medium"
+              >
                 {formatDate(finding.due_date)}
               </span>
             </div>
-
             {typeof finding.days_remaining === "number" && (
               <div
-                className={`text-xs ${
-                  finding.days_remaining < 0
-                    ? "text-red-700"
-                    : "text-gray-700"
-                }`}
+                className={`text-xs ${finding.days_remaining < 0 ? "text-rose-400" : "text-emerald-400"}`}
               >
                 {finding.days_remaining < 0
-                  ? `${Math.abs(finding.days_remaining).toFixed(
-                      1
-                    )} days overdue`
+                  ? `${Math.abs(finding.days_remaining).toFixed(1)} days overdue`
                   : `${finding.days_remaining.toFixed(1)} days remaining`}
               </div>
             )}
 
-            <button
-              className="mt-2 rounded bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-              disabled={saving || (finding.sla_status ?? "").toUpperCase() === "RESOLVED"}
-              onClick={markResolved}
-            >
-              {saving ? "Updating..." : "Mark as Resolved"}
-            </button>
+            {error && (
+              <div className="text-xs text-rose-400 mt-1 max-w-[200px] text-right">
+                {error}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2 mt-1 w-full sm:items-end">
+              <button
+                style={{
+                  background: isResolved
+                    ? "var(--bg-hover)"
+                    : "linear-gradient(135deg, #16a34a, #15803d)",
+                  border: isResolved
+                    ? "1px solid var(--border)"
+                    : "1px solid #16a34a",
+                  color: isResolved ? "var(--text-muted)" : "#fff",
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50 transition-all hover:opacity-90 w-full justify-center sm:w-auto"
+                disabled={savingResolved || isResolved || isFP}
+                onClick={markResolved}
+                title={isFP ? "Cannot resolve a false positive" : undefined}
+              >
+                {savingResolved ? (
+                  <>
+                    <SpinnerIcon /> Updating…
+                  </>
+                ) : (
+                  <>
+                    <CheckIcon /> {isResolved ? "Resolved" : "Mark as Resolved"}
+                  </>
+                )}
+              </button>
+
+              <button
+                style={{
+                  backgroundColor: isFP
+                    ? "rgba(250,204,21,0.08)"
+                    : "var(--bg-hover)",
+                  border: `1px solid ${isFP ? "rgba(250,204,21,0.3)" : "var(--border)"}`,
+                  color: isFP ? "#fbbf24" : "var(--text-secondary)",
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold disabled:opacity-50 transition-all hover:opacity-90 w-full justify-center sm:w-auto"
+                disabled={savingFP || isResolved}
+                onClick={toggleFalsePositive}
+                title={
+                  isResolved
+                    ? "Cannot flag a resolved finding as false positive"
+                    : undefined
+                }
+              >
+                {savingFP ? (
+                  <>
+                    <SpinnerIcon /> Updating…
+                  </>
+                ) : (
+                  <>
+                    <FPIcon />{" "}
+                    {isFP ? "Unmark False Positive" : "Mark as False Positive"}
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Body grid */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <div className="rounded-lg border bg-white p-5 lg:col-span-2">
-          <div className="text-sm font-semibold text-gray-800">
-            Location
-          </div>
-          <div className="mt-2 text-sm text-gray-700">
-            <span className="font-medium text-gray-900">
-              {finding.file_path}
-            </span>
-            :{finding.line_number}
-          </div>
+        {/* Main content */}
+        <div className="lg:col-span-2 space-y-5">
+          <div className="card p-5 space-y-5">
+            <div>
+              <SectionTitle>Location</SectionTitle>
+              <code
+                style={{
+                  color: "var(--text-secondary)",
+                  backgroundColor: "var(--bg-hover)",
+                  border: "1px solid var(--border)",
+                }}
+                className="inline-block rounded-md px-3 py-1.5 text-xs font-mono"
+              >
+                {finding.file_path}:{finding.line_number}
+              </code>
+            </div>
 
-          <div className="mt-4 text-sm font-semibold text-gray-800">
-            Description
-          </div>
-          <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">
-            {finding.description}
-          </p>
+            <div>
+              <SectionTitle>Description</SectionTitle>
+              <p
+                style={{ color: "var(--text-secondary)" }}
+                className="text-sm leading-relaxed whitespace-pre-wrap"
+              >
+                {finding.description}
+              </p>
+            </div>
 
-          {finding.code_snippet && (
-            <>
-              <div className="mt-4 text-sm font-semibold text-gray-800">
-                Code Snippet
+            {finding.code_snippet && (
+              <div>
+                <SectionTitle>Code Snippet</SectionTitle>
+                <pre
+                  style={{
+                    backgroundColor: "var(--bg-hover)",
+                    border: "1px solid var(--border)",
+                    color: "#c8d4f0",
+                  }}
+                  className="rounded-lg p-4 text-xs overflow-x-auto leading-relaxed font-mono"
+                >
+                  {finding.code_snippet}
+                </pre>
               </div>
-              <pre className="mt-2 overflow-x-auto rounded bg-gray-100 p-3 text-xs text-gray-800">
-                {finding.code_snippet}
-              </pre>
-            </>
-          )}
+            )}
 
-          <div className="mt-4 text-sm font-semibold text-gray-800">
-            Remediation
-          </div>
-          <p className="mt-2 text-sm text-gray-700 whitespace-pre-wrap">
-            {finding.remediation}
-          </p>
+            <div>
+              <SectionTitle>Remediation</SectionTitle>
+              <p
+                style={{ color: "var(--text-secondary)" }}
+                className="text-sm leading-relaxed whitespace-pre-wrap"
+              >
+                {finding.remediation}
+              </p>
+            </div>
 
-          <div className="mt-4 text-sm font-semibold text-gray-800">
-            Risk Score Breakdown
-          </div>
-          <div className="mt-2 overflow-x-auto">
-            <table className="w-full table-auto text-sm">
-              <thead className="bg-gray-50 text-left text-xs uppercase text-gray-600">
-                <tr>
-                  <th className="px-3 py-2">Factor</th>
-                  <th className="px-3 py-2">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                {riskFactorRows.length === 0 ? (
-                  <tr>
-                    <td className="px-3 py-3 text-sm text-gray-600" colSpan={2}>
-                      No risk factors available.
-                    </td>
-                  </tr>
-                ) : (
-                  riskFactorRows.map((row) => (
-                    <tr key={row.key} className="border-t">
-                      <td className="px-3 py-2 font-medium text-gray-900">
-                        {row.key}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">
-                        {typeof row.value === "object"
-                          ? JSON.stringify(row.value)
-                          : String(row.value)}
-                      </td>
+            <div>
+              <SectionTitle>Risk Score Breakdown</SectionTitle>
+              <div
+                className="overflow-x-auto rounded-lg"
+                style={{ border: "1px solid var(--border)" }}
+              >
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr
+                      style={{
+                        borderBottom: "1px solid var(--border)",
+                        backgroundColor: "var(--bg-hover)",
+                      }}
+                    >
+                      <th
+                        style={{
+                          color: "var(--text-muted)",
+                          letterSpacing: "0.06em",
+                        }}
+                        className="px-4 py-2.5 text-left text-[11px] uppercase font-medium"
+                      >
+                        Factor
+                      </th>
+                      <th
+                        style={{
+                          color: "var(--text-muted)",
+                          letterSpacing: "0.06em",
+                        }}
+                        className="px-4 py-2.5 text-left text-[11px] uppercase font-medium"
+                      >
+                        Value
+                      </th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody>
+                    {riskFactorRows.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={2}
+                          style={{ color: "var(--text-muted)" }}
+                          className="px-4 py-4 text-sm"
+                        >
+                          No risk factors available.
+                        </td>
+                      </tr>
+                    ) : (
+                      riskFactorRows.map((row) => (
+                        <tr
+                          key={row.key}
+                          style={{
+                            borderTop: "1px solid var(--border-subtle)",
+                          }}
+                        >
+                          <td
+                            style={{ color: "var(--text-primary)" }}
+                            className="px-4 py-2.5 font-medium text-[13px]"
+                          >
+                            {row.key}
+                          </td>
+                          <td
+                            style={{ color: "var(--text-secondary)" }}
+                            className="px-4 py-2.5 text-[13px] font-mono"
+                          >
+                            {typeof row.value === "object"
+                              ? JSON.stringify(row.value)
+                              : String(row.value)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
+
+          {/* Comments — full width in the left column */}
+          <CommentsSection
+            findingId={id}
+            initialComments={finding.comments ?? []}
+          />
         </div>
 
-        <div className="space-y-5">
-          <div className="rounded-lg border bg-white p-5">
-            <div className="text-sm font-semibold text-gray-800">
-              Compliance Tags
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+        {/* Sidebar */}
+        <div className="space-y-4">
+          <div className="card p-5">
+            <SectionTitle>Compliance Tags</SectionTitle>
+            <div className="flex flex-wrap gap-2">
               {(finding.compliance_tags ?? []).length === 0 ? (
-                <div className="text-sm text-gray-600">None</div>
+                <div style={{ color: "var(--text-muted)" }} className="text-sm">
+                  None
+                </div>
               ) : (
                 finding.compliance_tags.map((t) => (
                   <span
                     key={t}
-                    className="rounded bg-green-50 px-2 py-1 text-xs font-medium text-green-800 border border-green-200"
-                    title={t}
+                    className="rounded-md bg-blue-500/10 border border-blue-500/25 px-2.5 py-1 text-[12px] font-medium text-blue-400"
                   >
                     {t}
                   </span>
@@ -263,85 +810,65 @@ export default function FindingDetail() {
             </div>
           </div>
 
-          <div className="rounded-lg border bg-white p-5">
-            <div className="text-sm font-semibold text-gray-800">
-              Assignment
-            </div>
-            <div className="mt-3 space-y-2 text-sm text-gray-700">
-              <div>
-                <div className="text-xs font-medium text-gray-500">
-                  Assignee
-                </div>
-                <div className="font-medium text-gray-900">
-                  {finding.assignee ?? "-"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs font-medium text-gray-500">
-                  Team
-                </div>
-                <div className="font-medium text-gray-900">
-                  {finding.assignee_team ?? "-"}
-                </div>
-              </div>
-
-              <div>
-                <div className="text-xs font-medium text-gray-500">
-                  Method
-                </div>
-                <div className="font-medium text-gray-900">
-                  {finding.assignment_method ?? "-"}
-                </div>
-              </div>
-
-              {finding.codeowners_pattern && (
-                <div>
-                  <div className="text-xs font-medium text-gray-500">
-                    Codeowners pattern
-                  </div>
-                  <div className="font-medium text-gray-900">
-                    {finding.codeowners_pattern}
+          <div className="card p-5 space-y-3">
+            <SectionTitle>Assignment</SectionTitle>
+            {[
+              { label: "Assignee", value: finding.assignee },
+              { label: "Team", value: finding.assignee_team },
+              { label: "Method", value: finding.assignment_method },
+              finding.codeowners_pattern && {
+                label: "Codeowners",
+                value: finding.codeowners_pattern,
+              },
+            ]
+              .filter(Boolean)
+              .map(({ label, value }) => (
+                <div key={label}>
+                  <FieldLabel>{label}</FieldLabel>
+                  <div
+                    style={{ color: "var(--text-primary)" }}
+                    className="text-[13px] font-medium"
+                  >
+                    {value ?? "—"}
                   </div>
                 </div>
-              )}
-            </div>
+              ))}
           </div>
 
-          <div className="rounded-lg border bg-white p-5">
-            <div className="text-sm font-semibold text-gray-800">
-              Metadata
-            </div>
-            <div className="mt-3 space-y-2 text-sm text-gray-700">
-              <div>
-                <div className="text-xs font-medium text-gray-500">
-                  Source
-                </div>
-                <div className="font-medium text-gray-900">
-                  {finding.source ?? "-"}
+          <div className="card p-5 space-y-3">
+            <SectionTitle>Metadata</SectionTitle>
+            {[
+              { label: "Source", value: finding.source },
+              { label: "Detected At", value: formatDate(finding.detected_at) },
+              {
+                label: "Sentinel Escalate",
+                value: finding.sentinel_escalate ? "Yes" : "No",
+              },
+              {
+                label: "False Positive",
+                value: isFP
+                  ? `Yes — ${formatDate(finding.false_positive_at)}`
+                  : "No",
+              },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <FieldLabel>{label}</FieldLabel>
+                <div
+                  style={{
+                    color:
+                      label === "False Positive" && isFP
+                        ? "#fbbf24"
+                        : "var(--text-primary)",
+                  }}
+                  className="text-[13px] font-medium"
+                >
+                  {value ?? "—"}
                 </div>
               </div>
-              <div>
-                <div className="text-xs font-medium text-gray-500">
-                  Detected At
-                </div>
-                <div className="font-medium text-gray-900">
-                  {formatDate(finding.detected_at)}
-                </div>
-              </div>
-              <div>
-                <div className="text-xs font-medium text-gray-500">
-                  Sentinel Escalate
-                </div>
-                <div className="font-medium text-gray-900">
-                  {finding.sentinel_escalate ? "Yes" : "No"}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
     </div>
   );
 }
-

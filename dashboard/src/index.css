@@ -1,29 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&family=DM+Mono:wght@400;500&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg-base:       #0f1117;
-  --bg-surface:    #1a1f2e;
-  --bg-card:       #1e2436;
-  --bg-hover:      #252b3b;
-  --border:        #2e3650;
-  --text-primary:  #e8eaf0;
-  --text-secondary:#8b92a8;
-  --text-muted:    #555e78;
-  --accent-blue:   #3b82f6;
-  --accent-blue-dim:#1d4ed8;
-  --critical:      #f43f5e;
-  --high:          #fb923c;
-  --medium:        #facc15;
-  --low:           #34d399;
-  --info:          #94a3b8;
+  --bg-base:        #080b12;
+  --bg-surface:     #0d1120;
+  --bg-card:        #111827;
+  --bg-card-hover:  #141c2e;
+  --bg-hover:       #1a2236;
+  --border:         #1e2d45;
+  --border-subtle:  #162030;
+  --text-primary:   #f0f4ff;
+  --text-secondary: #7e8fa8;
+  --text-muted:     #3d5068;
+  --accent:         #4f8ef7;
+  --accent-glow:    rgba(79,142,247,0.15);
+  --critical:       #ff4d6a;
+  --high:           #ff8c42;
+  --medium:         #ffd166;
+  --low:            #06d6a0;
+  --info:           #6b7fa3;
+  --font-sans: 'DM Sans', system-ui, sans-serif;
+  --font-mono: 'DM Mono', 'Fira Code', monospace;
 }
+
+* { box-sizing: border-box; }
 
 body {
   background-color: var(--bg-base);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-* { box-sizing: border-box; }
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Subtle animated gradient for top bar */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.accent-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--accent) 40%, var(--critical) 70%, transparent 100%);
+  background-size: 200% auto;
+  animation: shimmer 4s linear infinite;
+  opacity: 0.6;
+}
+
+/* Card base */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* Fade-in animation */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.3s ease forwards; }
+
+/* Code / mono */
+code, pre { font-family: var(--font-mono); }

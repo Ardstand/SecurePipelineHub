@@ -7,6 +7,8 @@ from flask_cors import CORS
 import json
 import os
 import sys
+import uuid
+from datetime import datetime, timezone
 
 # Add project root to path so we can import storage module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -34,31 +36,82 @@ def error(message, status=400):
     return jsonify({"status": "error", "message": message}), status
 
 
+def find_and_save(finding_id, mutate_fn):
+    """
+    Load all findings, find the one with finding_id, call mutate_fn(finding)
+    to apply changes in place, then persist and return the updated finding.
+    Returns (updated_finding, error_message).
+    """
+    all_findings = load_all_findings()
+    updated = None
+
+    for f in all_findings:
+        if f.get('id') == finding_id:
+            mutate_fn(f)
+            updated = f
+            break
+
+    if not updated:
+        return None, f"Finding {finding_id} not found"
+
+    run_id = f"update_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+    save_findings(all_findings, run_id)
+    return updated, None
+
+
 # ─────────────────────────────────────────────
 # GET /api/findings
-# List all findings with optional filters
+# List all findings with optional filters.
+# By default false positives are excluded.
+# Pass ?show_false_positives=true to include them.
 # ─────────────────────────────────────────────
 
 @app.route('/api/findings', methods=['GET'])
 def get_findings():
     try:
-        severity   = request.args.get('severity')
-        source     = request.args.get('source')
-        priority   = request.args.get('priority')
-        assignee   = request.args.get('assignee')
-        sla_status = request.args.get('sla_status')
-        limit      = int(request.args.get('limit', 100))
-        offset     = int(request.args.get('offset', 0))
+        severity       = request.args.get('severity')
+        source         = request.args.get('source')
+        priority       = request.args.get('priority')
+        assignee       = request.args.get('assignee')
+        sla_status     = request.args.get('sla_status')
+        compliance_tag = request.args.get('compliance_tag')
+        show_fp        = request.args.get('show_false_positives', 'false').lower() == 'true'
+        limit          = int(request.args.get('limit', 100))
+        offset         = int(request.args.get('offset', 0))
 
-        findings, total = query_findings(
-            severity=severity,
-            source=source,
-            priority=priority,
-            assignee=assignee,
-            sla_status=sla_status,
-            limit=limit,
-            offset=offset
-        )
+        if compliance_tag:
+            all_matching, _ = query_findings(
+                severity=severity,
+                source=source,
+                priority=None,
+                assignee=assignee,
+                sla_status=sla_status,
+                include_false_positives=show_fp,
+                limit=100_000,
+                offset=0
+            )
+            filtered = [
+                f for f in all_matching
+                if compliance_tag in (f.get('compliance_tags') or [])
+            ]
+            if priority:
+                filtered = [
+                    f for f in filtered
+                    if (f.get('priority') or '').upper() == priority.upper()
+                ]
+            total    = len(filtered)
+            findings = filtered[offset: offset + limit]
+        else:
+            findings, total = query_findings(
+                severity=severity,
+                source=source,
+                priority=priority,
+                assignee=assignee,
+                sla_status=sla_status,
+                include_false_positives=show_fp,
+                limit=limit,
+                offset=offset
+            )
 
         return success({
             "findings": findings,
@@ -95,8 +148,10 @@ def get_finding(finding_id):
 
 # ─────────────────────────────────────────────
 # PATCH /api/findings/<id>
-# Mark a finding as resolved
-# Body: {"sla_status": "RESOLVED"}
+# Update a finding. Supports:
+#   {"sla_status": "RESOLVED"}
+#   {"false_positive": true}
+#   {"false_positive": false}
 # ─────────────────────────────────────────────
 
 @app.route('/api/findings/<finding_id>', methods=['PATCH'])
@@ -106,34 +161,84 @@ def update_finding(finding_id):
         if not body:
             return error("Request body required")
 
-        new_status = body.get('sla_status', '').upper()
-        valid = ['OPEN', 'WARNING', 'OVERDUE', 'RESOLVED']
-        if new_status not in valid:
-            return error(f"sla_status must be one of: {valid}")
+        allowed_fields = {'sla_status', 'false_positive'}
+        unknown = set(body.keys()) - allowed_fields
+        if unknown:
+            return error(f"Unknown fields: {list(unknown)}. Allowed: {list(allowed_fields)}")
 
-        # Load all findings, update the matching one, save back
-        all_findings = load_all_findings()
-        updated = False
+        if 'sla_status' in body:
+            new_status = body['sla_status'].upper()
+            valid_statuses = ['OPEN', 'WARNING', 'OVERDUE', 'RESOLVED']
+            if new_status not in valid_statuses:
+                return error(f"sla_status must be one of: {valid_statuses}")
 
-        for f in all_findings:
-            if f.get('id') == finding_id:
-                from datetime import datetime, timezone
-                f['sla_status'] = new_status
-                if new_status == 'RESOLVED':
-                    f['resolved_at'] = datetime.now(timezone.utc).isoformat()
-                updated = True
-                updated_finding = f
-                break
+        if 'false_positive' in body:
+            if not isinstance(body['false_positive'], bool):
+                return error("false_positive must be a boolean (true or false)")
 
-        if not updated:
-            return error(f"Finding {finding_id} not found", 404)
+        def mutate(f):
+            now = datetime.now(timezone.utc).isoformat()
+            if 'sla_status' in body:
+                f['sla_status'] = body['sla_status'].upper()
+                if f['sla_status'] == 'RESOLVED':
+                    f['resolved_at'] = now
+            if 'false_positive' in body:
+                f['false_positive'] = body['false_positive']
+                if body['false_positive']:
+                    f['false_positive_at'] = now
+                else:
+                    f.pop('false_positive_at', None)
 
-        # Persist the update
-        from datetime import datetime, timezone
-        run_id = f"update_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-        save_findings(all_findings, run_id)
+        updated, err = find_and_save(finding_id, mutate)
+        if err:
+            return error(err, 404)
+        return success(updated)
 
-        return success(updated_finding)
+    except Exception as e:
+        return error(str(e), 500)
+
+
+# ─────────────────────────────────────────────
+# POST /api/findings/<id>/comments
+# Add a comment to a finding.
+# Body: {"text": "...", "author": "..."}
+# ─────────────────────────────────────────────
+
+@app.route('/api/findings/<finding_id>/comments', methods=['POST'])
+def add_comment(finding_id):
+    try:
+        body = request.get_json()
+        if not body:
+            return error("Request body required")
+
+        text = (body.get('text') or '').strip()
+        if not text:
+            return error("Comment text is required")
+
+        author = (body.get('author') or '').strip()
+        if not author:
+            return error("Author is required")
+
+        if len(text) > 2000:
+            return error("Comment must be 2000 characters or fewer")
+
+        new_comment = {
+            "id":         str(uuid.uuid4()),
+            "text":       text,
+            "author":     author,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        }
+
+        def mutate(f):
+            if not isinstance(f.get('comments'), list):
+                f['comments'] = []
+            f['comments'].append(new_comment)
+
+        updated, err = find_and_save(finding_id, mutate)
+        if err:
+            return error(err, 404)
+
+        return success(new_comment, 201)
 
     except Exception as e:
         return error(str(e), 500)
@@ -141,7 +246,8 @@ def update_finding(finding_id):
 
 # ─────────────────────────────────────────────
 # GET /api/stats
-# Aggregated statistics for dashboard cards
+# Aggregated statistics for dashboard cards.
+# False positives are excluded from all counts.
 # ─────────────────────────────────────────────
 
 @app.route('/api/stats', methods=['GET'])
@@ -184,17 +290,18 @@ def get_trends():
         days = int(request.args.get('days', 30))
         all_findings = load_all_findings()
 
-        from datetime import datetime, timezone, timedelta
+        from datetime import timedelta
         now = datetime.now(timezone.utc)
         daily = {}
 
-        # Initialise all days with zero
         for i in range(days):
             day = (now - timedelta(days=i)).strftime('%Y-%m-%d')
             daily[day] = {"date": day, "total": 0,
                           "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
 
         for f in all_findings:
+            if f.get('false_positive', False):
+                continue
             detected = f.get('detected_at', '')
             if not detected:
                 continue
@@ -209,7 +316,6 @@ def get_trends():
             except Exception:
                 continue
 
-        # Return sorted oldest to newest
         trend_list = sorted(daily.values(), key=lambda x: x['date'])
         return success({"trends": trend_list, "days": days})
 
@@ -219,7 +325,6 @@ def get_trends():
 
 # ─────────────────────────────────────────────
 # GET /api/health
-# Health check endpoint
 # ─────────────────────────────────────────────
 
 @app.route('/api/health', methods=['GET'])
@@ -246,6 +351,7 @@ def root():
             "GET  /api/findings",
             "GET  /api/findings/<id>",
             "PATCH /api/findings/<id>",
+            "POST /api/findings/<id>/comments",
             "GET  /api/stats",
             "GET  /api/compliance",
             "GET  /api/trends"
@@ -258,13 +364,5 @@ if __name__ == '__main__':
     print("SecurePipeline Hub - Flask API")
     print("=" * 50)
     print("Running at: http://localhost:5000")
-    print("Endpoints:")
-    print("  GET  /api/health")
-    print("  GET  /api/findings")
-    print("  GET  /api/findings/<id>")
-    print("  PATCH /api/findings/<id>")
-    print("  GET  /api/stats")
-    print("  GET  /api/compliance")
-    print("  GET  /api/trends")
     print("=" * 50)
     app.run(debug=True, host='0.0.0.0', port=5000)

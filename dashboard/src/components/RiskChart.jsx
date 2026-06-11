@@ -2,93 +2,83 @@ import React, { useMemo } from "react";
 import { Pie, PieChart, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 const COLORS = {
-  CRITICAL: "#f43f5e",
-  HIGH: "#fb923c",
-  MEDIUM: "#facc15",
-  LOW: "#34d399",
-  INFO: "#475569",
+  CRITICAL: "#ff4d6a",
+  HIGH:     "#ff8c42",
+  MEDIUM:   "#ffd166",
+  LOW:      "#06d6a0",
+  INFO:     "#4a5568",
+};
+
+const TOOLTIP_STYLE = {
+  backgroundColor: "#111827",
+  border: "1px solid #1e2d45",
+  borderRadius: 10,
+  color: "#f0f4ff",
+  fontSize: 12,
+  fontFamily: "'DM Sans', system-ui, sans-serif",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
 };
 
 export default function RiskChart({ byPriority }) {
   const data = useMemo(() => {
     const src = byPriority ?? {};
-    return ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
-      .map((key) => ({
-        name: key,
-        value: Number(src[key] ?? 0),
-        color: COLORS[key],
-      }))
-      .filter((d) => d.value > 0);
+    return ["CRITICAL","HIGH","MEDIUM","LOW","INFO"]
+      .map(key => ({ name: key, value: Number(src[key] ?? 0), color: COLORS[key] }))
+      .filter(d => d.value > 0);
   }, [byPriority]);
 
   const total = data.reduce((s, d) => s + d.value, 0);
 
   return (
     <div>
-      <div
-        className="relative mx-auto"
-        style={{ width: "100%", maxWidth: 260 }}
-      >
-        <ResponsiveContainer width="100%" height={220}>
+      <div className="relative mx-auto" style={{ width: "100%", maxWidth: 240 }}>
+        <ResponsiveContainer width="100%" height={210}>
           <PieChart>
             <Tooltip
               formatter={(value, name) => [value, name]}
-              contentStyle={{
-                backgroundColor: "#1e2436",
-                border: "1px solid #2e3650",
-                borderRadius: 8,
-                color: "#e8eaf0",
-                fontSize: 12,
-              }}
+              contentStyle={TOOLTIP_STYLE}
             />
             <Pie
               data={data}
               dataKey="value"
               nameKey="name"
-              innerRadius={60}
+              innerRadius={62}
               outerRadius={90}
-              paddingAngle={3}
+              paddingAngle={2}
               stroke="none"
             >
-              {data.map((entry) => (
+              {data.map(entry => (
                 <Cell key={entry.name} fill={entry.color} />
               ))}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
-        {/* Centre label */}
+        {/* Centre */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <div style={{ color: "#e8eaf0" }} className="text-2xl font-bold">
+          <div style={{ color: "#f0f4ff", letterSpacing: "-0.03em", fontVariantNumeric: "tabular-nums" }} className="text-[28px] font-bold">
             {total}
           </div>
-          <div style={{ color: "#555e78" }} className="text-xs">
-            total
-          </div>
+          <div style={{ color: "var(--text-muted)" }} className="text-[11px] mt-0.5">total</div>
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        {data.map((d) => (
+      {total === 0 && (
+        <div style={{ color: "var(--text-muted)" }} className="mt-2 text-center text-xs">No data available.</div>
+      )}
+
+      <div className="mt-4 space-y-1.5">
+        {data.map(d => (
           <div key={d.name} className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span
-                className="h-2 w-2 rounded-sm"
-                style={{ background: d.color }}
-              />
-              <span style={{ color: "#8b92a8" }}>{d.name}</span>
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-sm" style={{ background: d.color }} />
+              <span style={{ color: "var(--text-secondary)" }} className="text-xs">{d.name}</span>
             </div>
-            <span style={{ color: "#e8eaf0" }} className="font-semibold">
+            <span style={{ color: "#f0f4ff", fontVariantNumeric: "tabular-nums" }} className="text-xs font-semibold">
               {d.value}
             </span>
           </div>
         ))}
       </div>
-
-      {total === 0 && (
-        <div style={{ color: "#555e78" }} className="mt-3 text-center text-xs">
-          No data.
-        </div>
-      )}
     </div>
   );
 }
