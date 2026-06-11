@@ -54,11 +54,28 @@ def save_findings(findings, pipeline_run_id=None):
     return filepath
 
 
+def _content_fingerprint(finding):
+    """
+    Stable fingerprint based on what the finding IS, not its UUID.
+    Same vulnerability in same file = same fingerprint regardless of
+    which commit or pipeline run detected it.
+    """
+    return (
+        (finding.get('source')    or '').lower(),
+        (finding.get('title')     or '').lower(),
+        (finding.get('file_path') or '').lower(),
+        str(finding.get('line_number') or 0),
+    )
+
+
 def load_all_findings():
     """
     Load all findings from all pipeline runs.
-    Deduplicates by finding ID — newest file wins, preserving the most
-    recent state (resolved, false_positive, comments, etc).
+    Two-stage deduplication:
+      1. By UUID (newest file wins) — preserves resolved/FP/comments state.
+      2. By content fingerprint (newest commit wins) — prevents the same
+         CVE from appearing once per commit when the vulnerable file
+         hasn't changed.
     Returns a flat list sorted by risk_score descending.
     """
     storage_dir = get_storage_dir()
@@ -66,8 +83,7 @@ def load_all_findings():
     if not os.path.exists(storage_dir):
         return []
 
-    # Process files newest-first so the first time we see an ID it's
-    # the most up-to-date copy. Older duplicates are skipped.
+    # Stage 1: UUID dedup — newest file wins for state preservation
     seen_ids = set()
     all_findings = []
 
@@ -85,9 +101,23 @@ def load_all_findings():
             except Exception as e:
                 print(f"[WARN] Could not load {filename}: {e}")
 
+    # Stage 2: Content fingerprint dedup — keep only the most recent
+    # occurrence of each unique vulnerability so CI findings from
+    # multiple commits don't inflate counts with identical CVEs.
+    seen_fingerprints = set()
+    deduped = []
+
+    # all_findings is already newest-first from Stage 1 sort above,
+    # so the first time we see a fingerprint it's the most recent.
+    for finding in all_findings:
+        fp = _content_fingerprint(finding)
+        if fp not in seen_fingerprints:
+            seen_fingerprints.add(fp)
+            deduped.append(finding)
+
     # Sort by risk_score descending
-    all_findings.sort(key=lambda x: x.get('risk_score', 0), reverse=True)
-    return all_findings
+    deduped.sort(key=lambda x: x.get('risk_score', 0), reverse=True)
+    return deduped
 
 
 def query_findings(

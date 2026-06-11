@@ -559,13 +559,15 @@ export default function FindingsTable() {
                           style={{ color: "var(--text-secondary)" }}
                           className="text-xs truncate"
                         >
-                          {f.assignee}
+                          {f.ci_author ?? f.assignee}
                         </div>
                         <div
                           style={{ color: "var(--text-muted)" }}
                           className="text-[11px]"
                         >
-                          {f.assignee_team}
+                          {f.ci_author
+                            ? f.ci_author.split("@")[0]
+                            : f.assignee_team}
                         </div>
                       </td>
                       <td className="px-4 py-3">

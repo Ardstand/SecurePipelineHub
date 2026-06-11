@@ -167,6 +167,18 @@ def scan_commit(sha, repo_dir, codeowners_path=None):
         with open(p_final) as fp:
             final_findings = json.load(fp)
 
+        # ── Override assignee with commit author ──────────────
+        # The ownership engine uses CODEOWNERS/gitblame which gives
+        # generic results. For CI findings, the commit author is the
+        # person who actually introduced the code, so use them instead.
+        commit_author  = meta['author']
+        commit_team    = commit_author.split('@')[0] if '@' in commit_author else commit_author
+        for f in final_findings:
+            if f.get('ci_author'):
+                f['assignee']          = commit_author
+                f['assignee_team']     = commit_team
+                f['assignment_method'] = 'commit_author'
+
         # ── Save ─────────────────────────────────────────────
         run_id   = f"ci_{short}"
         filepath = save_findings(final_findings, pipeline_run_id=run_id)
@@ -210,11 +222,28 @@ def clone_or_update_repo(repo_url, clone_dir):
         print(f"[INFO] Updating existing clone at {clone_dir}")
         run_cmd("git fetch --all --quiet", cwd=clone_dir, check=False)
     else:
-        print(f"[INFO] Cloning {repo_url} into {clone_dir}")
+        # Mask the PAT in logs so it never prints to console
+        safe_url = repo_url
+        if "@" in repo_url:
+            parts = repo_url.split("@")
+            safe_url = parts[0].split("//")[0] + "//<PAT_REDACTED>@" + parts[1]
+        print(f"[INFO] Cloning {safe_url} into {clone_dir}")
         os.makedirs(clone_dir, exist_ok=True)
-        _, rc = run_cmd(f"git clone {repo_url} {clone_dir} --quiet", check=False)
-        if rc != 0:
-            print(f"[ERROR] Failed to clone {repo_url}")
+
+        result = subprocess.run(
+            f'git clone "{repo_url}" "{clone_dir}"',
+            shell=True, text=True,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        if result.returncode != 0:
+            print(f"[ERROR] Failed to clone repository.")
+            print(f"[ERROR] Git said: {result.stderr.strip()}")
+            print()
+            print("Common causes:")
+            print("  1. PAT is wrong or expired — regenerate at github.com/settings/tokens")
+            print("  2. Repo URL is wrong — check TARGET_REPO_URL in .env")
+            print("  3. PAT does not have 'repo' scope for private repos")
+            print("  4. Repo name has a typo")
             sys.exit(1)
 
 

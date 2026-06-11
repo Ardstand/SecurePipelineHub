@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getFinding, updateFinding, addComment } from "../api";
+import { getFinding, updateFinding } from "../api";
 
 function sevBadgeClass(severity) {
   const s = (severity ?? "").toUpperCase();
@@ -33,21 +33,6 @@ function formatDate(iso) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString("en-IE", { dateStyle: "medium", timeStyle: "short" });
-}
-
-function formatRelative(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const diff = Date.now() - d.getTime();
-  const mins = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  return formatDate(iso);
 }
 
 function BackIcon() {
@@ -99,40 +84,6 @@ function FPIcon() {
     </svg>
   );
 }
-function SendIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="22" y1="2" x2="11" y2="13" />
-      <polygon points="22 2 15 22 11 13 2 9 22 2" />
-    </svg>
-  );
-}
-function UserIcon() {
-  return (
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
 function SpinnerIcon() {
   return (
     <svg
@@ -170,228 +121,6 @@ function SectionTitle({ children }) {
     </h3>
   );
 }
-
-// ─────────────────────────────────────────────
-// Comments section
-// ─────────────────────────────────────────────
-const DEFAULT_AUTHOR = "sahil@securepipeline.dev";
-
-function CommentsSection({ findingId, initialComments }) {
-  const [comments, setComments] = useState(initialComments ?? []);
-  const [text, setText] = useState("");
-  const [author, setAuthor] = useState(DEFAULT_AUTHOR);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-
-  const handleSubmit = async () => {
-    const trimmed = text.trim();
-    const trimmedAuthor = author.trim();
-    if (!trimmed || !trimmedAuthor) return;
-    setSubmitting(true);
-    setSubmitError("");
-    try {
-      const newComment = await addComment(findingId, {
-        text: trimmed,
-        author: trimmedAuthor,
-      });
-      setComments((prev) => [...prev, newComment]);
-      setText("");
-    } catch (e) {
-      setSubmitError(e?.message ?? "Failed to post comment.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleKeyDown = (e) => {
-    // Ctrl+Enter or Cmd+Enter to submit
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
-
-  const charsLeft = 2000 - text.length;
-
-  return (
-    <div className="card p-5">
-      <div className="flex items-center justify-between mb-4">
-        <SectionTitle>
-          Comments
-          {comments.length > 0 && (
-            <span
-              style={{ color: "var(--text-muted)", fontWeight: 400 }}
-              className="ml-2 text-[12px]"
-            >
-              ({comments.length})
-            </span>
-          )}
-        </SectionTitle>
-      </div>
-
-      {/* Comment list */}
-      {comments.length === 0 ? (
-        <div
-          style={{
-            color: "var(--text-muted)",
-            borderColor: "var(--border-subtle)",
-          }}
-          className="mb-5 rounded-lg border border-dashed px-4 py-6 text-center text-sm"
-        >
-          No comments yet. Be the first to add a note.
-        </div>
-      ) : (
-        <div className="mb-5 space-y-3">
-          {comments.map((c) => (
-            <div
-              key={c.id}
-              style={{
-                backgroundColor: "var(--bg-hover)",
-                border: "1px solid var(--border)",
-              }}
-              className="rounded-lg p-3.5"
-            >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    style={{
-                      backgroundColor: "var(--accent-glow)",
-                      color: "var(--accent)",
-                      border: "1px solid rgba(79,142,247,0.2)",
-                    }}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold shrink-0"
-                  >
-                    {(c.author ?? "?")[0].toUpperCase()}
-                  </span>
-                  <span
-                    style={{ color: "var(--text-primary)" }}
-                    className="text-[13px] font-medium"
-                  >
-                    {c.author}
-                  </span>
-                </div>
-                <span
-                  style={{ color: "var(--text-muted)" }}
-                  className="text-[11px] shrink-0"
-                  title={formatDate(c.created_at)}
-                >
-                  {formatRelative(c.created_at)}
-                </span>
-              </div>
-              <p
-                style={{ color: "var(--text-secondary)" }}
-                className="text-[13px] leading-relaxed whitespace-pre-wrap"
-              >
-                {c.text}
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* New comment form */}
-      <div
-        style={{ border: "1px solid var(--border)", borderRadius: 10 }}
-        className="overflow-hidden"
-      >
-        {/* Author row */}
-        <div
-          style={{
-            borderBottom: "1px solid var(--border)",
-            backgroundColor: "var(--bg-hover)",
-          }}
-          className="flex items-center gap-2 px-3 py-2"
-        >
-          <span style={{ color: "var(--text-muted)" }}>
-            <UserIcon />
-          </span>
-          <input
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            placeholder="Your name or email"
-            style={{
-              backgroundColor: "transparent",
-              color: "var(--text-primary)",
-              fontSize: 12,
-              outline: "none",
-              fontFamily: "var(--font-sans)",
-              width: "100%",
-            }}
-          />
-        </div>
-
-        {/* Textarea */}
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Add a note, observation, or action taken…"
-          rows={3}
-          maxLength={2000}
-          style={{
-            backgroundColor: "var(--bg-card)",
-            color: "var(--text-primary)",
-            fontSize: 13,
-            outline: "none",
-            fontFamily: "var(--font-sans)",
-            resize: "vertical",
-            width: "100%",
-            padding: "10px 12px",
-            lineHeight: 1.6,
-          }}
-        />
-
-        {/* Footer row */}
-        <div
-          style={{
-            borderTop: "1px solid var(--border)",
-            backgroundColor: "var(--bg-hover)",
-          }}
-          className="flex items-center justify-between px-3 py-2"
-        >
-          <span
-            style={{ color: charsLeft < 100 ? "#f97316" : "var(--text-muted)" }}
-            className="text-[11px]"
-          >
-            {charsLeft < 2000
-              ? `${charsLeft} chars left`
-              : "Ctrl+Enter to submit"}
-          </span>
-
-          <div className="flex items-center gap-2">
-            {submitError && (
-              <span className="text-[11px] text-rose-400">{submitError}</span>
-            )}
-            <button
-              onClick={handleSubmit}
-              disabled={submitting || !text.trim() || !author.trim()}
-              style={{
-                background: "linear-gradient(135deg, #1d4ed8, #1e40af)",
-                border: "1px solid #2563eb",
-                color: "#fff",
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold disabled:opacity-40 transition-all hover:opacity-90"
-            >
-              {submitting ? (
-                <>
-                  <SpinnerIcon /> Posting…
-                </>
-              ) : (
-                <>
-                  <SendIcon /> Post
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// Main component
-// ─────────────────────────────────────────────
 
 export default function FindingDetail() {
   const { id } = useParams();
@@ -492,7 +221,7 @@ export default function FindingDetail() {
 
   return (
     <div className="space-y-5 fade-up">
-      {/* Back */}
+      {/* Back button */}
       <button
         onClick={() => navigate(-1)}
         style={{
@@ -590,7 +319,9 @@ export default function FindingDetail() {
               </div>
             )}
 
+            {/* Action buttons */}
             <div className="flex flex-col gap-2 mt-1 w-full sm:items-end">
+              {/* Mark Resolved */}
               <button
                 style={{
                   background: isResolved
@@ -617,6 +348,7 @@ export default function FindingDetail() {
                 )}
               </button>
 
+              {/* False Positive toggle */}
               <button
                 style={{
                   backgroundColor: isFP
@@ -653,143 +385,134 @@ export default function FindingDetail() {
       {/* Body grid */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
         {/* Main content */}
-        <div className="lg:col-span-2 space-y-5">
-          <div className="card p-5 space-y-5">
-            <div>
-              <SectionTitle>Location</SectionTitle>
-              <code
-                style={{
-                  color: "var(--text-secondary)",
-                  backgroundColor: "var(--bg-hover)",
-                  border: "1px solid var(--border)",
-                }}
-                className="inline-block rounded-md px-3 py-1.5 text-xs font-mono"
-              >
-                {finding.file_path}:{finding.line_number}
-              </code>
-            </div>
-
-            <div>
-              <SectionTitle>Description</SectionTitle>
-              <p
-                style={{ color: "var(--text-secondary)" }}
-                className="text-sm leading-relaxed whitespace-pre-wrap"
-              >
-                {finding.description}
-              </p>
-            </div>
-
-            {finding.code_snippet && (
-              <div>
-                <SectionTitle>Code Snippet</SectionTitle>
-                <pre
-                  style={{
-                    backgroundColor: "var(--bg-hover)",
-                    border: "1px solid var(--border)",
-                    color: "#c8d4f0",
-                  }}
-                  className="rounded-lg p-4 text-xs overflow-x-auto leading-relaxed font-mono"
-                >
-                  {finding.code_snippet}
-                </pre>
-              </div>
-            )}
-
-            <div>
-              <SectionTitle>Remediation</SectionTitle>
-              <p
-                style={{ color: "var(--text-secondary)" }}
-                className="text-sm leading-relaxed whitespace-pre-wrap"
-              >
-                {finding.remediation}
-              </p>
-            </div>
-
-            <div>
-              <SectionTitle>Risk Score Breakdown</SectionTitle>
-              <div
-                className="overflow-x-auto rounded-lg"
-                style={{ border: "1px solid var(--border)" }}
-              >
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr
-                      style={{
-                        borderBottom: "1px solid var(--border)",
-                        backgroundColor: "var(--bg-hover)",
-                      }}
-                    >
-                      <th
-                        style={{
-                          color: "var(--text-muted)",
-                          letterSpacing: "0.06em",
-                        }}
-                        className="px-4 py-2.5 text-left text-[11px] uppercase font-medium"
-                      >
-                        Factor
-                      </th>
-                      <th
-                        style={{
-                          color: "var(--text-muted)",
-                          letterSpacing: "0.06em",
-                        }}
-                        className="px-4 py-2.5 text-left text-[11px] uppercase font-medium"
-                      >
-                        Value
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {riskFactorRows.length === 0 ? (
-                      <tr>
-                        <td
-                          colSpan={2}
-                          style={{ color: "var(--text-muted)" }}
-                          className="px-4 py-4 text-sm"
-                        >
-                          No risk factors available.
-                        </td>
-                      </tr>
-                    ) : (
-                      riskFactorRows.map((row) => (
-                        <tr
-                          key={row.key}
-                          style={{
-                            borderTop: "1px solid var(--border-subtle)",
-                          }}
-                        >
-                          <td
-                            style={{ color: "var(--text-primary)" }}
-                            className="px-4 py-2.5 font-medium text-[13px]"
-                          >
-                            {row.key}
-                          </td>
-                          <td
-                            style={{ color: "var(--text-secondary)" }}
-                            className="px-4 py-2.5 text-[13px] font-mono"
-                          >
-                            {typeof row.value === "object"
-                              ? JSON.stringify(row.value)
-                              : String(row.value)}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+        <div className="card p-5 lg:col-span-2 space-y-5">
+          <div>
+            <SectionTitle>Location</SectionTitle>
+            <code
+              style={{
+                color: "var(--text-secondary)",
+                backgroundColor: "var(--bg-hover)",
+                border: "1px solid var(--border)",
+              }}
+              className="inline-block rounded-md px-3 py-1.5 text-xs font-mono"
+            >
+              {finding.file_path}:{finding.line_number}
+            </code>
           </div>
 
-          {/* Comments — full width in the left column */}
-          <CommentsSection
-            findingId={id}
-            initialComments={finding.comments ?? []}
-          />
+          <div>
+            <SectionTitle>Description</SectionTitle>
+            <p
+              style={{ color: "var(--text-secondary)" }}
+              className="text-sm leading-relaxed whitespace-pre-wrap"
+            >
+              {finding.description}
+            </p>
+          </div>
+
+          {finding.code_snippet && (
+            <div>
+              <SectionTitle>Code Snippet</SectionTitle>
+              <pre
+                style={{
+                  backgroundColor: "var(--bg-hover)",
+                  border: "1px solid var(--border)",
+                  color: "#c8d4f0",
+                }}
+                className="rounded-lg p-4 text-xs overflow-x-auto leading-relaxed font-mono"
+              >
+                {finding.code_snippet}
+              </pre>
+            </div>
+          )}
+
+          <div>
+            <SectionTitle>Remediation</SectionTitle>
+            <p
+              style={{ color: "var(--text-secondary)" }}
+              className="text-sm leading-relaxed whitespace-pre-wrap"
+            >
+              {finding.remediation}
+            </p>
+          </div>
+
+          <div>
+            <SectionTitle>Risk Score Breakdown</SectionTitle>
+            <div
+              className="overflow-x-auto rounded-lg"
+              style={{ border: "1px solid var(--border)" }}
+            >
+              <table className="w-full text-sm">
+                <thead>
+                  <tr
+                    style={{
+                      borderBottom: "1px solid var(--border)",
+                      backgroundColor: "var(--bg-hover)",
+                    }}
+                  >
+                    <th
+                      style={{
+                        color: "var(--text-muted)",
+                        letterSpacing: "0.06em",
+                      }}
+                      className="px-4 py-2.5 text-left text-[11px] uppercase font-medium"
+                    >
+                      Factor
+                    </th>
+                    <th
+                      style={{
+                        color: "var(--text-muted)",
+                        letterSpacing: "0.06em",
+                      }}
+                      className="px-4 py-2.5 text-left text-[11px] uppercase font-medium"
+                    >
+                      Value
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {riskFactorRows.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={2}
+                        style={{ color: "var(--text-muted)" }}
+                        className="px-4 py-4 text-sm"
+                      >
+                        No risk factors available.
+                      </td>
+                    </tr>
+                  ) : (
+                    riskFactorRows.map((row) => (
+                      <tr
+                        key={row.key}
+                        style={{ borderTop: "1px solid var(--border-subtle)" }}
+                      >
+                        <td
+                          style={{ color: "var(--text-primary)" }}
+                          className="px-4 py-2.5 font-medium text-[13px]"
+                        >
+                          {row.key}
+                        </td>
+                        <td
+                          style={{ color: "var(--text-secondary)" }}
+                          className="px-4 py-2.5 text-[13px] font-mono"
+                        >
+                          {typeof row.value === "object"
+                            ? JSON.stringify(row.value)
+                            : String(row.value)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
         {/* Sidebar */}
         <div className="space-y-4">
+          {/* Compliance Tags */}
           <div className="card p-5">
             <SectionTitle>Compliance Tags</SectionTitle>
             <div className="flex flex-wrap gap-2">
@@ -810,16 +533,38 @@ export default function FindingDetail() {
             </div>
           </div>
 
+          {/* Assignment */}
           <div className="card p-5 space-y-3">
             <SectionTitle>Assignment</SectionTitle>
             {[
-              { label: "Assignee", value: finding.assignee },
-              { label: "Team", value: finding.assignee_team },
-              { label: "Method", value: finding.assignment_method },
-              finding.codeowners_pattern && {
-                label: "Codeowners",
-                value: finding.codeowners_pattern,
+              finding.ci_author
+                ? { label: "Author", value: finding.ci_author }
+                : { label: "Assignee", value: finding.assignee },
+              finding.ci_author
+                ? { label: "Team", value: finding.ci_author.split("@")[0] }
+                : { label: "Team", value: finding.assignee_team },
+              finding.ci_short_sha && {
+                label: "Commit",
+                value: finding.ci_short_sha,
               },
+              finding.ci_message && {
+                label: "Message",
+                value: finding.ci_message,
+              },
+              finding.ci_date && {
+                label: "Date",
+                value: finding.ci_date?.slice(0, 10),
+              },
+              !finding.ci_author &&
+                finding.assignment_method && {
+                  label: "Method",
+                  value: finding.assignment_method,
+                },
+              !finding.ci_author &&
+                finding.codeowners_pattern && {
+                  label: "Codeowners",
+                  value: finding.codeowners_pattern,
+                },
             ]
               .filter(Boolean)
               .map(({ label, value }) => (
@@ -835,6 +580,7 @@ export default function FindingDetail() {
               ))}
           </div>
 
+          {/* Metadata */}
           <div className="card p-5 space-y-3">
             <SectionTitle>Metadata</SectionTitle>
             {[
