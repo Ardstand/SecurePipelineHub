@@ -1,0 +1,15 @@
+{
+  "commit_sha": "980ac72169cc51ebed5875e7dcc3a0eacad470f5",
+  "short_sha": "980ac721",
+  "author": "zenilwastaken@gmail.com",
+  "date": "2023-01-22 20:20:12 +0530",
+  "message": "test",
+  "total": 9,
+  "by_priority": {
+    "MEDIUM": 3,
+    "LOW": 4,
+    "INFO": 2
+  },
+  "findings_file": "findings_ci_980ac721.json",
+  "blocked": false
+}

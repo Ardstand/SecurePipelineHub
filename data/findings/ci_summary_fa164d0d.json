@@ -1,0 +1,15 @@
+{
+  "commit_sha": "fa164d0dbe4b6059ae948d829066069933cb1efd",
+  "short_sha": "fa164d0d",
+  "author": "zenilwastaken@gmail.com",
+  "date": "2022-05-28 14:39:46 +0530",
+  "message": "update",
+  "total": 10,
+  "by_priority": {
+    "MEDIUM": 3,
+    "LOW": 5,
+    "INFO": 2
+  },
+  "findings_file": "findings_ci_fa164d0d.json",
+  "blocked": false
+}

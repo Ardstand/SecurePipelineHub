@@ -1,0 +1,15 @@
+{
+  "commit_sha": "f3102aa678905a5442530ead4672ff9c0119078f",
+  "short_sha": "f3102aa6",
+  "author": "zenilwastaken@gmail.com",
+  "date": "2022-07-31 11:09:40 +0530",
+  "message": "update",
+  "total": 9,
+  "by_priority": {
+    "MEDIUM": 3,
+    "LOW": 4,
+    "INFO": 2
+  },
+  "findings_file": "findings_ci_f3102aa6.json",
+  "blocked": false
+}

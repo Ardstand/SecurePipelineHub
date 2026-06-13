@@ -1,0 +1,15 @@
+{
+  "commit_sha": "c294adca35337af26b8a0ce38f8cf061135c9c2f",
+  "short_sha": "c294adca",
+  "author": "zenilwastaken@gmail.com",
+  "date": "2022-07-31 11:07:13 +0530",
+  "message": "update",
+  "total": 9,
+  "by_priority": {
+    "MEDIUM": 3,
+    "LOW": 4,
+    "INFO": 2
+  },
+  "findings_file": "findings_ci_c294adca.json",
+  "blocked": false
+}

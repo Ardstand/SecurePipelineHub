@@ -1,0 +1,15 @@
+{
+  "commit_sha": "20db2ee12256fd841c2286ae272fee40c4daa924",
+  "short_sha": "20db2ee1",
+  "author": "73349677+Ardstand@users.noreply.github.com",
+  "date": "2022-07-31 09:58:36 +0530",
+  "message": "update",
+  "total": 9,
+  "by_priority": {
+    "MEDIUM": 3,
+    "LOW": 4,
+    "INFO": 2
+  },
+  "findings_file": "findings_ci_20db2ee1.json",
+  "blocked": false
+}

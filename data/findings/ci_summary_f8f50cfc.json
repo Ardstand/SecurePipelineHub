@@ -1,0 +1,15 @@
+{
+  "commit_sha": "f8f50cfc50a9e02d78d189dd073b2a7ff2ee3514",
+  "short_sha": "f8f50cfc",
+  "author": "73349677+Ardstand@users.noreply.github.com",
+  "date": "2022-07-31 09:59:09 +0530",
+  "message": "update",
+  "total": 9,
+  "by_priority": {
+    "MEDIUM": 3,
+    "LOW": 4,
+    "INFO": 2
+  },
+  "findings_file": "findings_ci_f8f50cfc.json",
+  "blocked": false
+}

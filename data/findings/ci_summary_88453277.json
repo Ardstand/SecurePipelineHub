@@ -1,0 +1,15 @@
+{
+  "commit_sha": "88453277a1d0dad216323b916ed2eff833995920",
+  "short_sha": "88453277",
+  "author": "73349677+Ardstand@users.noreply.github.com",
+  "date": "2022-05-29 07:24:38 +0530",
+  "message": "Update",
+  "total": 9,
+  "by_priority": {
+    "MEDIUM": 3,
+    "LOW": 4,
+    "INFO": 2
+  },
+  "findings_file": "findings_ci_88453277.json",
+  "blocked": false
+}

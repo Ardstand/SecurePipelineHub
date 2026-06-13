@@ -1,0 +1,15 @@
+{
+  "commit_sha": "76d60c3ed9e09108014d90612a1c316820630fed",
+  "short_sha": "76d60c3e",
+  "author": "zenilwastaken@gmail.com",
+  "date": "2023-01-22 20:06:03 +0530",
+  "message": "Merge branch 'main' of https://github.com/Ardstand/ValoMarket",
+  "total": 9,
+  "by_priority": {
+    "MEDIUM": 3,
+    "LOW": 4,
+    "INFO": 2
+  },
+  "findings_file": "findings_ci_76d60c3e.json",
+  "blocked": false
+}

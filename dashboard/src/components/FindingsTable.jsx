@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getFindings, getStats } from "../api";
+import { RefreshContext } from "../App";
 
 const PAGE_SIZE = 20;
 
@@ -152,6 +153,7 @@ const fieldStyle = {
 
 export default function FindingsTable() {
   const navigate = useNavigate();
+  const { refreshKey } = React.useContext(RefreshContext);
   const [searchParams, setSearchParams] = useSearchParams();
   const complianceTag = searchParams.get("tag") ?? "";
 
@@ -256,6 +258,7 @@ export default function FindingsTable() {
     query,
     complianceTag,
     showFP,
+    refreshKey,
   ]);
 
   useEffect(() => {

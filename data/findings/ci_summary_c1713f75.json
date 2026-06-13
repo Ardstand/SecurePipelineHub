@@ -1,0 +1,15 @@
+{
+  "commit_sha": "c1713f75573a7ed263b3e5cf66ea40a95ae2c20d",
+  "short_sha": "c1713f75",
+  "author": "zenilwastaken@gmail.com",
+  "date": "2022-07-31 10:55:22 +0530",
+  "message": "update",
+  "total": 9,
+  "by_priority": {
+    "MEDIUM": 3,
+    "LOW": 4,
+    "INFO": 2
+  },
+  "findings_file": "findings_ci_c1713f75.json",
+  "blocked": false
+}
