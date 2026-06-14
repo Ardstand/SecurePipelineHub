@@ -7,7 +7,6 @@ import json
 import os
 import sys
 import sqlite3
-import sqlite3
 import subprocess
 import threading
 import time
@@ -22,10 +21,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from processing.storage import (
     query_findings, get_stats,
     get_compliance_status, load_all_findings, save_findings
-    query_findings, get_stats,
-    get_compliance_status, load_all_findings, save_findings
 )
- 
+
 app = Flask(__name__)
 CORS(app, resources={r"/api/*": {
     "origins": ["http://localhost:3000", "http://127.0.0.1:3000"],
@@ -38,9 +35,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # ─────────────────────────────────────────────
 # HELPERS
-# HELPERS
 # ─────────────────────────────────────────────
- 
+
 def success(data, status=200):
     return jsonify({"status": "success", "data": data}), status
 
@@ -446,13 +442,10 @@ _poller_state = {
     "last_checked": None, "last_pulled": None,
     "last_commit":  None, "status":      "idle",
     "message":      "",   "pull_count":  0,
-    "last_checked": None, "last_pulled": None,
-    "last_commit":  None, "status":      "idle",
-    "message":      "",   "pull_count":  0,
 }
 _poller_lock = threading.Lock()
- 
- 
+
+
 def _run(cmd, cwd=None):
     r = subprocess.run(cmd, shell=True, cwd=cwd,
                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -462,14 +455,14 @@ def _run(cmd, cwd=None):
 def _get_local_sha():
     out, _, _ = _run("git rev-parse HEAD", cwd=PROJECT_ROOT)
     return out
- 
- 
+
+
 def _get_remote_sha():
     _run("git fetch origin main --quiet", cwd=PROJECT_ROOT)
     out, _, _ = _run("git rev-parse origin/main", cwd=PROJECT_ROOT)
     return out
- 
- 
+
+
 def _do_pull():
     _run("git stash --quiet", cwd=PROJECT_ROOT)
     _, err_msg, rc = _run("git pull origin main --quiet", cwd=PROJECT_ROOT)
@@ -479,11 +472,9 @@ def _do_pull():
 
 def _poll_loop():
     print(f"[Poller] Started — checking every {POLL_INTERVAL}s")
-    print(f"[Poller] Started — checking every {POLL_INTERVAL}s")
     _last_pulled_sha = None
     while True:
         try:
-            now        = datetime.now(timezone.utc).isoformat()
             now        = datetime.now(timezone.utc).isoformat()
             local_sha  = _get_local_sha()
             remote_sha = _get_remote_sha()
@@ -496,21 +487,13 @@ def _poll_loop():
 
             if local_sha and remote_sha and local_sha != remote_sha and not already_done:
                 print(f"[Poller] New commit: {remote_sha[:8]} — pulling...")
-                print(f"[Poller] New commit: {remote_sha[:8]} — pulling...")
                 with _poller_lock:
                     _poller_state["status"] = "pulling"
                 ok_pull, err_msg = _do_pull()
                 new_local = _get_local_sha()
-                ok_pull, err_msg = _do_pull()
-                new_local = _get_local_sha()
                 with _poller_lock:
                     if ok_pull and new_local == remote_sha:
-                    if ok_pull and new_local == remote_sha:
                         _last_pulled_sha = remote_sha
-                        _poller_state.update(status="updated", last_pulled=now,
-                                             last_commit=remote_sha[:8],
-                                             pull_count=_poller_state["pull_count"] + 1,
-                                             message=f"Pulled {remote_sha[:8]}")
                         _poller_state.update(status="updated", last_pulled=now,
                                              last_commit=remote_sha[:8],
                                              pull_count=_poller_state["pull_count"] + 1,
@@ -521,17 +504,11 @@ def _poll_loop():
                         _poller_state.update(status="error",
                                              message=(err_msg or "HEAD did not advance")[:200])
                         print(f"[Poller] Pull failed: {err_msg[:100]}")
-                        _last_pulled_sha = None
-                        _poller_state.update(status="error",
-                                             message=(err_msg or "HEAD did not advance")[:200])
-                        print(f"[Poller] Pull failed: {err_msg[:100]}")
             else:
                 with _poller_lock:
                     _poller_state.update(status="up_to_date", message="")
-                    _poller_state.update(status="up_to_date", message="")
         except Exception as e:
             with _poller_lock:
-                _poller_state.update(status="error", message=str(e)[:200])
                 _poller_state.update(status="error", message=str(e)[:200])
             print(f"[Poller] Error: {e}")
         time.sleep(POLL_INTERVAL)
@@ -543,9 +520,8 @@ if os.environ.get('WERKZEUG_RUN_MAIN') != 'false':
 
 # ─────────────────────────────────────────────
 # SYNC ROUTES
-# SYNC ROUTES
 # ─────────────────────────────────────────────
- 
+
 @app.route('/api/sync-status', methods=['GET'])
 def sync_status():
     with _poller_lock:
@@ -556,13 +532,9 @@ def sync_status():
 def sync_now():
     try:
         now        = datetime.now(timezone.utc).isoformat()
-        now        = datetime.now(timezone.utc).isoformat()
         local_sha  = _get_local_sha()
         remote_sha = _get_remote_sha()
         if local_sha == remote_sha:
-            return success({"pulled": False, "message": "Already up to date", "commit": local_sha[:8]})
-        ok_pull, err_msg = _do_pull()
-        if ok_pull:
             return success({"pulled": False, "message": "Already up to date", "commit": local_sha[:8]})
         ok_pull, err_msg = _do_pull()
         if ok_pull:
@@ -573,24 +545,17 @@ def sync_now():
                                      pull_count=_poller_state["pull_count"] + 1)
             return success({"pulled": True, "message": f"Pulled {new_sha[:8]}", "commit": new_sha[:8]})
         return error(f"git pull failed: {err_msg}", 500)
-                _poller_state.update(status="updated", last_pulled=now,
-                                     last_commit=new_sha[:8] if new_sha else None,
-                                     pull_count=_poller_state["pull_count"] + 1)
-            return success({"pulled": True, "message": f"Pulled {new_sha[:8]}", "commit": new_sha[:8]})
-        return error(f"git pull failed: {err_msg}", 500)
     except Exception as e:
         return error(str(e), 500)
- 
- 
+
+
 # ─────────────────────────────────────────────
 # FINDINGS ROUTES
-# FINDINGS ROUTES
 # ─────────────────────────────────────────────
- 
+
 @app.route('/api/findings', methods=['GET'])
 def get_findings():
     try:
-        current_user   = get_current_user()
         current_user   = get_current_user()
         severity       = request.args.get('severity')
         source         = request.args.get('source')
@@ -601,21 +566,15 @@ def get_findings():
         show_fp        = request.args.get('show_false_positives', 'false').lower() == 'true'
         limit          = int(request.args.get('limit', 100))
         offset         = int(request.args.get('offset', 0))
- 
+
         if compliance_tag:
             all_matching, _ = query_findings(
                 severity=severity, source=source, priority=None,
                 assignee=assignee, sla_status=sla_status,
                 include_false_positives=show_fp, limit=100_000, offset=0
-                severity=severity, source=source, priority=None,
-                assignee=assignee, sla_status=sla_status,
-                include_false_positives=show_fp, limit=100_000, offset=0
             )
             filtered = [f for f in all_matching if compliance_tag in (f.get('compliance_tags') or [])]
-            filtered = [f for f in all_matching if compliance_tag in (f.get('compliance_tags') or [])]
             if priority:
-                filtered = [f for f in filtered if (f.get('priority') or '').upper() == priority.upper()]
-            filtered = filter_findings_for_user(filtered, current_user)
                 filtered = [f for f in filtered if (f.get('priority') or '').upper() == priority.upper()]
             filtered = filter_findings_for_user(filtered, current_user)
             total    = len(filtered)
@@ -641,8 +600,6 @@ def get_finding(finding_id):
     try:
         all_f   = load_all_findings()
         finding = next((f for f in all_f if f.get('id') == finding_id), None)
-        all_f   = load_all_findings()
-        finding = next((f for f in all_f if f.get('id') == finding_id), None)
         if not finding:
             return error(f"Finding {finding_id} not found", 404)
         return success(finding)
@@ -658,10 +615,7 @@ def update_finding(finding_id):
             return error("Request body required")
         allowed = {'sla_status', 'false_positive'}
         unknown = set(body.keys()) - allowed
-        allowed = {'sla_status', 'false_positive'}
-        unknown = set(body.keys()) - allowed
         if unknown:
-            return error(f"Unknown fields: {list(unknown)}")
             return error(f"Unknown fields: {list(unknown)}")
         if 'sla_status' in body:
             ns = body['sla_status'].upper()
@@ -680,12 +634,10 @@ def update_finding(finding_id):
                 if f['sla_status'] == 'RESOLVED':
                     f['resolved_at'] = now
                     f['resolved_by'] = actor_email
-                    f['resolved_by'] = actor_email
             if 'false_positive' in body:
                 f['false_positive'] = body['false_positive']
                 if body['false_positive']:
                     f['false_positive_at'] = now
-                    f['false_positive_by'] = actor_email
                     f['false_positive_by'] = actor_email
                 else:
                     f.pop('false_positive_at', None)
@@ -702,8 +654,6 @@ def update_finding(finding_id):
 @app.route('/api/findings/<finding_id>/comments', methods=['POST'])
 def add_comment(finding_id):
     try:
-        body = request.get_json() or {}
-        text = (body.get('text') or '').strip()
         body = request.get_json() or {}
         text = (body.get('text') or '').strip()
         if not text:
@@ -723,51 +673,28 @@ def add_comment(finding_id):
             "text":       text,
             "author":     author,
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "created_at": datetime.now(timezone.utc).isoformat(),
         }
- 
+
         def mutate(f):
             if not isinstance(f.get('comments'), list):
                 f['comments'] = []
             f['comments'].append(new_comment)
- 
+
         updated, err = find_and_save(finding_id, mutate)
         if err:
             return error(err, 404)
         return success(new_comment, 201)
     except Exception as e:
         return error(str(e), 500)
- 
- 
+
+
 # ─────────────────────────────────────────────
 # STATS / COMPLIANCE / TRENDS
-# STATS / COMPLIANCE / TRENDS
 # ─────────────────────────────────────────────
- 
+
 @app.route('/api/stats', methods=['GET'])
 def get_statistics():
     try:
-        current_user  = get_current_user()
-        all_f, _      = query_findings(limit=100_000)
-        findings      = filter_findings_for_user(all_f, current_user)
-        if not findings:
-            return success({"total_findings": 0, "by_severity": {}, "by_source": {},
-                            "by_priority": {}, "by_sla_status": {},
-                            "avg_risk_score": 0, "sentinel_flagged": 0})
-        by_sev = {}; by_src = {}; by_pri = {}; by_sla = {}
-        total_score = 0; sentinel = 0
-        for f in findings:
-            by_sev[f.get('severity','UNKNOWN')] = by_sev.get(f.get('severity','UNKNOWN'), 0) + 1
-            by_src[f.get('source','unknown')]   = by_src.get(f.get('source','unknown'), 0) + 1
-            by_pri[f.get('priority','UNKNOWN')] = by_pri.get(f.get('priority','UNKNOWN'), 0) + 1
-            by_sla[f.get('sla_status','UNKNOWN')] = by_sla.get(f.get('sla_status','UNKNOWN'), 0) + 1
-            total_score += f.get('risk_score', 0)
-            if f.get('sentinel_flagged') or f.get('sentinel_escalate'):
-                sentinel += 1
-        return success({"total_findings": len(findings), "by_severity": by_sev,
-                        "by_source": by_src, "by_priority": by_pri, "by_sla_status": by_sla,
-                        "avg_risk_score": round(total_score / len(findings), 1),
-                        "sentinel_flagged": sentinel})
         current_user  = get_current_user()
         all_f, _      = query_findings(limit=100_000)
         findings      = filter_findings_for_user(all_f, current_user)
@@ -818,28 +745,6 @@ def get_compliance():
         covered = sum(1 for r in result if r['status'] == 'FINDINGS_PRESENT')
         return success({"categories": result, "covered": covered, "total": 10,
                         "coverage_pct": round((covered / 10) * 100, 1)})
-        current_user = get_current_user()
-        all_f, _     = query_findings(limit=100_000)
-        findings     = filter_findings_for_user(all_f, current_user)
-        cats = [
-            "A01:2021 - Broken Access Control", "A02:2021 - Cryptographic Failures",
-            "A03:2021 - Injection", "A04:2021 - Insecure Design",
-            "A05:2021 - Security Misconfiguration", "A06:2021 - Vulnerable and Outdated Components",
-            "A07:2021 - Identification and Authentication Failures",
-            "A08:2021 - Software and Data Integrity Failures",
-            "A09:2021 - Security Logging and Monitoring Failures",
-            "A10:2021 - Server-Side Request Forgery",
-        ]
-        counts = {c: 0 for c in cats}
-        for f in findings:
-            for tag in f.get('compliance_tags', []):
-                if tag in counts:
-                    counts[tag] += 1
-        result  = [{"category": c, "finding_count": counts[c],
-                    "status": "FINDINGS_PRESENT" if counts[c] > 0 else "NOT_COVERED"} for c in cats]
-        covered = sum(1 for r in result if r['status'] == 'FINDINGS_PRESENT')
-        return success({"categories": result, "covered": covered, "total": 10,
-                        "coverage_pct": round((covered / 10) * 100, 1)})
     except Exception as e:
         return error(str(e), 500)
 
@@ -851,9 +756,6 @@ def get_trends():
         current_user = get_current_user()
         all_f        = load_all_findings()
         findings     = filter_findings_for_user(all_f, current_user)
-        current_user = get_current_user()
-        all_f        = load_all_findings()
-        findings     = filter_findings_for_user(all_f, current_user)
         now   = datetime.now(timezone.utc)
         daily = {}
         for i in range(days):
@@ -861,12 +763,8 @@ def get_trends():
             daily[day] = {"date": day, "total": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
         for f in findings:
             if f.get('false_positive'):
-            daily[day] = {"date": day, "total": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
-        for f in findings:
-            if f.get('false_positive'):
                 continue
             try:
-                dt  = datetime.fromisoformat((f.get('detected_at') or '').replace('Z', '+00:00'))
                 dt  = datetime.fromisoformat((f.get('detected_at') or '').replace('Z', '+00:00'))
                 day = dt.strftime('%Y-%m-%d')
                 if day in daily:
@@ -874,22 +772,17 @@ def get_trends():
                     p = f.get('priority', 'INFO')
                     if p in daily[day]:
                         daily[day][p] += 1
-                    p = f.get('priority', 'INFO')
-                    if p in daily[day]:
-                        daily[day][p] += 1
             except Exception:
                 continue
         return success({"trends": sorted(daily.values(), key=lambda x: x['date']), "days": days})
-        return success({"trends": sorted(daily.values(), key=lambda x: x['date']), "days": days})
     except Exception as e:
         return error(str(e), 500)
- 
- 
+
+
 # ─────────────────────────────────────────────
 # HEALTH / ROOT
-# HEALTH / ROOT
 # ─────────────────────────────────────────────
- 
+
 @app.route('/api/health', methods=['GET'])
 def health():
     with _poller_lock:
@@ -905,7 +798,6 @@ def root():
 
 # ─────────────────────────────────────────────
 # ENTRYPOINT
-# ENTRYPOINT
 # ─────────────────────────────────────────────
 
 init_auth_system()
@@ -913,8 +805,6 @@ init_auth_system()
 if __name__ == '__main__':
     print("=" * 50)
     print("SecurePipeline Hub - Flask API")
-    print(f"Auth DB : {AUTH_DB_PATH}")
-    print(f"Poller  : every {POLL_INTERVAL}s")
     print(f"Auth DB : {AUTH_DB_PATH}")
     print(f"Poller  : every {POLL_INTERVAL}s")
     print("=" * 50)
