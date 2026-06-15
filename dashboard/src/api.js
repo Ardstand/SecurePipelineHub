@@ -43,7 +43,8 @@ export const changePassword = (current_password, new_password) =>
 // ── Admin user management ─────────────────────────────────────────────────────
 export const getUsers = () => API.get("/api/users").then(unwrap);
 
-export const signupUser = (data) => API.post("/api/users", data).then(unwrap);
+export const signupUser = (data) =>
+  API.post("/api/auth/signup", data).then(unwrap);
 
 export const updateUserById = (id, data) =>
   API.patch(`/api/users/${id}`, data).then(unwrap);

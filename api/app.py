@@ -567,20 +567,36 @@ def get_findings():
             total    = len(filtered)
             findings = filtered[offset: offset + limit]
         else:
-            findings, total = query_findings(
-                severity=severity,
-                source=source,
-                priority=priority,
-                assignee=assignee,
-                sla_status=sla_status,
-                include_false_positives=show_fp,
-                limit=limit + offset,  # Get extra to account for filtering
-                offset=0
-            )
-            # Apply user-level filtering
-            findings = filter_findings_for_user(findings, current_user)
-            total = len(findings)
-            findings = findings[offset: offset + limit]
+            # If this request will be subject to user-level github_email filtering
+            # we must fetch the full matching set first so the returned `total`
+            # accurately reflects the filtered result count. Otherwise we can
+            # optimise by only fetching a window and then returning that slice.
+            will_filter = current_user and current_user.get('role') != 'admin' and current_user.get('github_email')
+            if will_filter:
+                all_matching, _ = query_findings(
+                    severity=severity,
+                    source=source,
+                    priority=priority,
+                    assignee=assignee,
+                    sla_status=sla_status,
+                    include_false_positives=show_fp,
+                    limit=100_000,
+                    offset=0
+                )
+                filtered = filter_findings_for_user(all_matching, current_user)
+                total = len(filtered)
+                findings = filtered[offset: offset + limit]
+            else:
+                findings, total = query_findings(
+                    severity=severity,
+                    source=source,
+                    priority=priority,
+                    assignee=assignee,
+                    sla_status=sla_status,
+                    include_false_positives=show_fp,
+                    limit=limit,
+                    offset=offset
+                )
         
         findings = [enrich_finding_with_user(f) for f in findings]
         return success({
