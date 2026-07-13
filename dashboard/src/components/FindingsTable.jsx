@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getFindings, getStats } from "../api";
+import { getFindings, getStats, getSyncStatus } from "../api";
 import { RefreshContext } from "../App";
 
 const PAGE_SIZE = 20;
@@ -171,6 +171,7 @@ export default function FindingsTable() {
   const [error, setError] = useState("");
   const [findings, setFindings] = useState([]);
   const [total, setTotal] = useState(0);
+  const [syncStatus, setSyncStatus] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -264,6 +265,23 @@ export default function FindingsTable() {
   useEffect(() => {
     setPage(0);
   }, [severity, source, priority, slaStatus, query, complianceTag, showFP]);
+
+  // Poll sync status every 30s to keep the target commit banner current
+  useEffect(() => {
+    let alive = true;
+    async function fetchSync() {
+      try {
+        const s = await getSyncStatus();
+        if (alive) setSyncStatus(s);
+      } catch (_) {}
+    }
+    fetchSync();
+    const interval = setInterval(fetchSync, 30000);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, [refreshKey]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const clearTag = () => {
@@ -390,6 +408,74 @@ export default function FindingsTable() {
           <div className="mt-2 text-xs text-rose-400">{statsError}</div>
         )}
       </div>
+
+      {/* Target repo commit banner */}
+      {syncStatus?.target_repo_short && (
+        <div
+          style={{
+            backgroundColor: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "10px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <GitIcon />
+          <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+            Latest scanned commit:
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              color: "var(--accent)",
+              fontWeight: 600,
+            }}
+          >
+            {syncStatus.target_repo_short}
+          </span>
+          {syncStatus.target_repo_message && (
+            <span
+              style={{
+                color: "var(--text-secondary)",
+                fontSize: 12,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 320,
+              }}
+              title={syncStatus.target_repo_message}
+            >
+              — {syncStatus.target_repo_message.slice(0, 72)}
+              {syncStatus.target_repo_message.length > 72 ? "…" : ""}
+            </span>
+          )}
+          {syncStatus.target_repo_author && (
+            <span
+              style={{
+                color: "var(--text-muted)",
+                fontSize: 11,
+                marginLeft: "auto",
+                whiteSpace: "nowrap",
+              }}
+            >
+              by {syncStatus.target_repo_author.split("@")[0]}
+              {syncStatus.target_repo_date && (
+                <>
+                  {" "}
+                  ·{" "}
+                  {new Date(syncStatus.target_repo_date).toLocaleDateString(
+                    "en-IE",
+                    { day: "2-digit", month: "short", year: "numeric" },
+                  )}
+                </>
+              )}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Table */}
       <div className="card overflow-hidden">

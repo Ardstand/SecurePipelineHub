@@ -9,11 +9,15 @@ name: Security Scan
 
 on:
   push:
-    branches: [main]
+    branches: [main, actions]
     paths-ignore:
       - "data/findings/**" # never trigger on findings commits (prevents loop)
   pull_request:
-    branches: [main]
+    branches: [main, actions]
+  # Triggered by the target repo via a webhook dispatch when new code is pushed.
+  # The target repo workflow sends this event with the commit SHA as a payload.
+  repository_dispatch:
+    types: [target-repo-push]
 
 permissions:
   contents: write
@@ -70,7 +74,22 @@ jobs:
           git clone "${{ secrets.TARGET_REPO_URL }}" .repo_cache
           echo "Cloned successfully"
           echo "Commits available: $(git -C .repo_cache log --oneline | wc -l)"
-          echo "Oldest commit: $(git -C .repo_cache log --oneline | tail -1)"
+
+          # If triggered by repository_dispatch, use the SHA sent in the
+          # webhook payload so we scan exactly the commit that was pushed.
+          # Otherwise fall back to HEAD of the cloned target repo.
+          PAYLOAD_SHA="${{ github.event.client_payload.sha }}"
+          if [ -n "$PAYLOAD_SHA" ]; then
+            echo "Dispatch trigger — checking out payload SHA: ${PAYLOAD_SHA}"
+            git -C .repo_cache checkout "$PAYLOAD_SHA" --quiet
+            TARGET_SHA="$PAYLOAD_SHA"
+          else
+            TARGET_SHA=$(git -C .repo_cache rev-parse HEAD)
+            echo "Push trigger — using HEAD: ${TARGET_SHA}"
+          fi
+
+          echo "TARGET_SHA=${TARGET_SHA}" >> $GITHUB_ENV
+          echo "Scanning target repo at: ${TARGET_SHA}"
 
       # ── 5. Run pipeline on the triggering commit ──────────────
       - name: Run SecurePipeline Hub on commit
@@ -82,8 +101,9 @@ jobs:
           # → Variables if you want a full scan (set to a large number).
           GITLEAKS_HISTORY_DAYS: ${{ vars.GITLEAKS_HISTORY_DAYS || '90' }}
         run: |
+          echo "Scanning target repo at SHA: ${TARGET_SHA}"
           python processing/commit_scanner.py \
-            --sha      "${{ github.sha }}" \
+            --sha      "${TARGET_SHA}" \
             --repo-dir ".repo_cache"
         continue-on-error: true
 
@@ -98,7 +118,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No new findings — nothing to commit"
           else
-            SHORT="${{ github.sha }}"
+            SHORT="${TARGET_SHA}"
             SHORT="${SHORT:0:8}"
             git commit -m "ci: findings for ${SHORT} [ci skip]"
             git push
@@ -110,7 +130,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          SHORT="${{ github.sha }}"
+          SHORT="${TARGET_SHA}"
           SHORT="${SHORT:0:8}"
           SUMMARY="data/findings/ci_summary_${SHORT}.json"
 

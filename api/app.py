@@ -361,12 +361,19 @@ PROJECT_ROOT  = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Shared state — read by /api/sync-status
 _poller_state = {
-    "last_checked":   None,   # ISO string
-    "last_pulled":    None,   # ISO string of most recent pull
-    "last_commit":    None,   # SHA of latest local commit
-    "status":         "idle", # idle | pulling | up_to_date | updated | error
-    "message":        "",
-    "pull_count":     0,
+    "last_checked":        None,   # ISO string
+    "last_pulled":         None,   # ISO string of most recent pull
+    "last_commit":         None,   # SHA of latest local SecurePipelineHub commit
+    "status":              "idle", # idle | pulling | up_to_date | updated | error
+    "message":             "",
+    "pull_count":          0,
+    # Latest target repo scan info — read from ci_summary_*.json after pull
+    "target_repo_sha":     None,   # full SHA of last scanned target repo commit
+    "target_repo_short":   None,   # short (8-char) SHA
+    "target_repo_author":  None,   # commit author email
+    "target_repo_message": None,   # commit message
+    "target_repo_date":    None,   # commit date ISO string
+    "target_repo_total":   None,   # total findings from that scan
 }
 _poller_lock = threading.Lock()
 
@@ -384,14 +391,46 @@ def _get_local_sha():
     return out
 
 
+def _get_current_branch():
+    """Return the current git branch name (e.g. 'main', 'action')."""
+    out, _, _ = _run("git rev-parse --abbrev-ref HEAD", cwd=PROJECT_ROOT)
+    return out or "main"
+
+
+def _read_latest_target_sha():
+    """
+    Scan data/findings/ for the most recent ci_summary_*.json file and
+    return its contents. This tells us the last target repo commit that
+    was scanned, independently of the SecurePipelineHub commit SHA.
+    Returns a dict or None if no summary files exist.
+    """
+    import glob
+    pattern = os.path.join(PROJECT_ROOT, "data", "findings", "ci_summary_*.json")
+    files = sorted(glob.glob(pattern), key=os.path.getmtime, reverse=True)
+    if not files:
+        return None
+    try:
+        with open(files[0]) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
 def _get_remote_sha():
-    _run("git fetch origin main --quiet", cwd=PROJECT_ROOT)
-    out, _, _ = _run("git rev-parse origin/main", cwd=PROJECT_ROOT)
+    branch = _get_current_branch()
+    _run(f"git fetch origin {branch} --quiet", cwd=PROJECT_ROOT)
+    out, _, _ = _run(f"git rev-parse origin/{branch}", cwd=PROJECT_ROOT)
     return out
 
 
 def _do_pull():
-    out, err, rc = _run("git pull origin main --quiet", cwd=PROJECT_ROOT)
+    # Use fetch + reset instead of pull so that uncommitted local changes
+    # (e.g. findings files written to disk by a previous run) never block
+    # the update. data/findings/ only ever comes from the remote, so
+    # hard-resetting to origin/<branch> is always safe here.
+    branch = _get_current_branch()
+    _run(f"git fetch origin {branch} --quiet", cwd=PROJECT_ROOT)
+    out, err, rc = _run(f"git reset --hard origin/{branch} --quiet", cwd=PROJECT_ROOT)
     return rc == 0, err
 
 
@@ -438,6 +477,16 @@ def _poll_loop():
                         _poller_state["pull_count"] += 1
                         _poller_state["message"]     = f"Pulled {remote_sha[:8]}"
                         print(f"[Poller] Pull successful — {remote_sha[:8]}")
+                        # Update target repo info from latest ci_summary file
+                        summary = _read_latest_target_sha()
+                        if summary:
+                            _poller_state["target_repo_sha"]     = summary.get("commit_sha")
+                            _poller_state["target_repo_short"]   = summary.get("short_sha")
+                            _poller_state["target_repo_author"]  = summary.get("author")
+                            _poller_state["target_repo_message"] = summary.get("message")
+                            _poller_state["target_repo_date"]    = summary.get("date")
+                            _poller_state["target_repo_total"]   = summary.get("total")
+                            print(f"[Poller] Target repo SHA: {summary.get('short_sha')} by {summary.get('author')}")
                     elif ok and new_local_sha != remote_sha:
                         # Pull claimed success but HEAD didn't move —
                         # likely a dirty working tree or merge conflict
@@ -465,6 +514,16 @@ def _poll_loop():
 # Start background poller thread when Flask starts
 # (not during testing or reloader child process)
 if os.environ.get('WERKZEUG_RUN_MAIN') != 'false':
+    # Populate target repo info from existing summary files on startup
+    # so the dashboard shows the last scanned commit immediately.
+    _startup_summary = _read_latest_target_sha()
+    if _startup_summary:
+        _poller_state["target_repo_sha"]     = _startup_summary.get("commit_sha")
+        _poller_state["target_repo_short"]   = _startup_summary.get("short_sha")
+        _poller_state["target_repo_author"]  = _startup_summary.get("author")
+        _poller_state["target_repo_message"] = _startup_summary.get("message")
+        _poller_state["target_repo_date"]    = _startup_summary.get("date")
+        _poller_state["target_repo_total"]   = _startup_summary.get("total")
     _poller_thread = threading.Thread(target=_poll_loop, daemon=True)
     _poller_thread.start()
 

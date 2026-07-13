@@ -70,3 +70,5 @@ export const getCompliance = () => API.get("/api/compliance").then(unwrap);
 
 export const getTrends = (days = 30) =>
   API.get("/api/trends", { params: { days } }).then(unwrap);
+
+export const getSyncStatus = () => API.get("/api/sync-status").then(unwrap);
