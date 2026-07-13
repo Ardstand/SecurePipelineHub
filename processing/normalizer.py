@@ -127,11 +127,27 @@ def parse_gitleaks(filepath):
         else:
             redacted = '***REDACTED***'
 
-        findings.append(make_finding(
+        # In history-mode, Gitleaks includes the SHA of the commit that
+        # introduced the secret. Capture it so the finding can be linked
+        # back to the exact historical commit, not just the current CI run.
+        commit_introduced = (
+            r.get('Commit') or r.get('commit') or None
+        )
+        author_introduced = (
+            r.get('Author') or r.get('author') or None
+        )
+        date_introduced = (
+            r.get('Date') or r.get('date') or None
+        )
+
+        finding = make_finding(
             source="gitleaks",
             title=f"Secret Detected: {r.get('Description', r.get('description', 'Unknown Secret'))}",
-            description=f"Hardcoded secret found. Value (redacted): {redacted}. "
-                       f"Rule: {r.get('RuleID', r.get('ruleID', 'unknown'))}",
+            description=(
+                f"Hardcoded secret found. Value (redacted): {redacted}. "
+                f"Rule: {r.get('RuleID', r.get('ruleID', 'unknown'))}."
+                + (f" Originally introduced in commit {commit_introduced[:8]}." if commit_introduced else "")
+            ),
             severity="HIGH",  # Secrets are always HIGH
             file_path=r.get('File', r.get('file', 'unknown')),
             line_number=r.get('StartLine', r.get('startLine', 0)),
@@ -139,7 +155,15 @@ def parse_gitleaks(filepath):
             remediation="Remove secret from code immediately. Rotate the credential. "
                        "Use environment variables or a secrets manager instead.",
             cwe_id="CWE-798"
-        ))
+        )
+
+        # Attach history-mode metadata so the dashboard and API can surface
+        # exactly when and by whom the secret was originally committed.
+        finding['commit_introduced']  = commit_introduced
+        finding['author_introduced']  = author_introduced
+        finding['date_introduced']    = date_introduced
+
+        findings.append(finding)
 
     return findings
 

@@ -3,6 +3,8 @@ title = "SecurePipeline Hub - GitLeaks Config"
 [extend]
 useDefault = true
 
+# ── Custom rules ──────────────────────────────────────────────────────────────
+
 [[rules]]
 id = "hardcoded-api-key"
 description = "Hardcoded API Key detected"
@@ -20,3 +22,27 @@ id = "hardcoded-secret"
 description = "Hardcoded Secret detected"
 regex = '''(?i)(secret|secret_key)\s*=\s*["']([^"']{8,})["']'''
 tags = ["secret", "hardcoded"]
+
+# ── Global allowlist ──────────────────────────────────────────────────────────
+# Suppresses known false positives from test fixtures, example files,
+# and documentation so history scanning does not produce noise.
+
+[allowlist]
+description = "Global allowlist for test fixtures and documentation"
+
+# Ignore dummy/example values commonly used in docs and tests
+regexes = [
+    '''(?i)(password|secret|api_key)\s*=\s*["'](example|placeholder|your[_-]?.*here|changeme|replace[_-]?me|test|dummy|fake|xxxxxx+|<.*>|\*+)["']''',
+    '''(?i)secret_key\s*=\s*["']dev-only-do-not-use-in-production[^"']*["']''',
+]
+
+# Ignore specific file paths that are known to contain example credentials
+paths = [
+    '''(?i)test[s]?/''',
+    '''(?i)spec[s]?/''',
+    '''(?i)fixture[s]?/''',
+    '''(?i)\.md$''',
+    '''(?i)\.example$''',
+    '''(?i)\.sample$''',
+    '''(?i)CHANGELOG''',
+]

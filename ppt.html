@@ -1,0 +1,1757 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecurePipelineHub — Download PPTX</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <script
+      src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"
+      onerror="
+        document.getElementById('err').style.display = 'flex';
+        document.getElementById('dl').disabled = true;
+      "
+    ></script>
+    <style>
+      :root {
+        --bg: #0a0e17;
+        --fg: #e8ecf4;
+        --muted: #6b7a94;
+        --accent: #00e5a0;
+        --card: #141c2b;
+        --border: #1e293b;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: "Space Grotesk", sans-serif;
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      .bg-grid {
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(0, 229, 160, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(0, 229, 160, 0.03) 1px, transparent 1px);
+        background-size: 60px 60px;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .bg-glow {
+        position: fixed;
+        width: 500px;
+        height: 500px;
+        border-radius: 50%;
+        filter: blur(160px);
+        opacity: 0.12;
+        pointer-events: none;
+        z-index: 0;
+        animation: pulse 6s ease-in-out infinite;
+      }
+      .g1 {
+        top: -150px;
+        left: -100px;
+        background: var(--accent);
+      }
+      .g2 {
+        bottom: -200px;
+        right: -150px;
+        background: #00c9db;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.12;
+        }
+        50% {
+          opacity: 0.2;
+        }
+      }
+      main {
+        position: relative;
+        z-index: 1;
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 80px 24px 60px;
+      }
+      .tag {
+        font-size: 11px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 16px;
+        font-weight: 500;
+      }
+      h1 {
+        font-size: clamp(36px, 5vw, 52px);
+        font-weight: 800;
+        letter-spacing: -1.5px;
+        line-height: 1.1;
+        margin-bottom: 16px;
+      }
+      h1 span {
+        color: var(--accent);
+      }
+      .sub {
+        font-size: 16px;
+        color: var(--muted);
+        line-height: 1.6;
+        margin-bottom: 36px;
+        max-width: 600px;
+      }
+      #dl {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 36px;
+        border-radius: 10px;
+        background: var(--accent);
+        color: var(--bg);
+        font-family: inherit;
+        font-size: 15px;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        letter-spacing: 0.3px;
+      }
+      #dl:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px rgba(0, 229, 160, 0.3);
+      }
+      #dl:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      #dl.success {
+        background: rgba(0, 229, 160, 0.15);
+        color: var(--accent);
+        border: 1px solid rgba(0, 229, 160, 0.3);
+      }
+      .err-msg {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        margin-top: 20px;
+        padding: 14px 20px;
+        border-radius: 10px;
+        background: rgba(255, 77, 106, 0.1);
+        border: 1px solid rgba(255, 77, 106, 0.25);
+        color: #ff4d6a;
+        font-size: 14px;
+      }
+      .divider {
+        height: 1px;
+        background: var(--border);
+        margin: 48px 0 36px;
+      }
+      .outline-title {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        color: var(--muted);
+        margin-bottom: 20px;
+        font-weight: 500;
+      }
+      .outline-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      .outline-card {
+        display: flex;
+        gap: 14px;
+        padding: 16px 18px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        transition: all 0.3s;
+        opacity: 0;
+        animation: fadeUp 0.4s ease forwards;
+      }
+      .outline-card:hover {
+        border-color: rgba(0, 229, 160, 0.25);
+        transform: translateY(-1px);
+      }
+      .outline-num {
+        font-family: "Space Grotesk", sans-serif;
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--accent);
+        min-width: 28px;
+        padding-top: 2px;
+      }
+      .outline-body h3 {
+        font-size: 14px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .outline-body p {
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @media (max-width: 600px) {
+        .outline-grid {
+          grid-template-columns: 1fr;
+        }
+        main {
+          padding: 60px 16px 40px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .outline-card {
+          animation: none;
+          opacity: 1;
+        }
+        .bg-glow {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow g1"></div>
+    <div class="bg-glow g2"></div>
+    <main>
+      <div class="tag">PPTX Generator</div>
+      <h1>Secure<span>Pipeline</span>Hub</h1>
+      <p class="sub">
+        10-slide architecture presentation covering the full DevSecOps pipeline
+        platform — from scanner normalization through risk scoring, ownership,
+        SLA tracking, and the React dashboard.
+      </p>
+      <button id="dl">
+        <i class="fa-solid fa-download"></i> Download PPTX
+      </button>
+      <div class="err-msg" id="err">
+        <i class="fa-solid fa-triangle-exclamation"></i> Failed to load
+        PptxGenJS library. Check your network connection and refresh.
+      </div>
+      <div class="divider"></div>
+      <div class="outline-title">Slide Outline</div>
+      <div class="outline-grid" id="outline"></div>
+    </main>
+
+    <script>
+      /* Slide outline data */
+      const slideData = [
+        { n: "01", t: "Title", d: "Platform introduction with key metrics" },
+        {
+          n: "02",
+          t: "The Problem",
+          d: "Fragmented scanner output challenges",
+        },
+        {
+          n: "03",
+          t: "Solution Overview",
+          d: "Five scanners, six stages, unified schema",
+        },
+        { n: "04", t: "Architecture", d: "Three-layer system design" },
+        {
+          n: "05",
+          t: "Processing Pipeline",
+          d: "Linear 6-stage enrichment chain",
+        },
+        { n: "06", t: "Risk Scoring", d: "Contextual 0–100 weighted formula" },
+        {
+          n: "07",
+          t: "Ownership & SLA",
+          d: "Fallback assignment + deadline tracking",
+        },
+        {
+          n: "08",
+          t: "Compliance & Storage",
+          d: "OWASP mapping + deduplication",
+        },
+        {
+          n: "09",
+          t: "CI/CD & API",
+          d: "GitHub Actions + Flask REST endpoints",
+        },
+        {
+          n: "10",
+          t: "Key Differentiators",
+          d: "What makes this platform unique",
+        },
+      ];
+
+      /* Render outline cards with stagger */
+      const outlineEl = document.getElementById("outline");
+      slideData.forEach((s, i) => {
+        const div = document.createElement("div");
+        div.className = "outline-card";
+        div.style.animationDelay = i * 60 + "ms";
+        div.innerHTML = `<div class="outline-num">${s.n}</div><div class="outline-body"><h3>${s.t}</h3><p>${s.d}</p></div>`;
+        outlineEl.appendChild(div);
+      });
+
+      /* ========== PPTX GENERATION ========== */
+      function generatePPTX() {
+        const pptx = new PptxGenJS();
+        pptx.layout = "LAYOUT_WIDE"; // 13.33" x 7.5"
+
+        /* Color palette */
+        const C = {
+          bg: "0A0E17",
+          fg: "E8ECF4",
+          muted: "6B7A94",
+          accent: "00E5A0",
+          accentDim: "0D2B22",
+          red: "FF4D6A",
+          orange: "FF9F43",
+          yellow: "FFD43B",
+          blue: "4DABF7",
+          card: "141C2B",
+          border: "1E293B",
+          subtle: "2A3544",
+        };
+
+        /* --- Helpers --- */
+        function bar(s) {
+          s.addShape(pptx.shapes.RECTANGLE, {
+            x: 0,
+            y: 0,
+            w: "100%",
+            h: 0.04,
+            fill: { color: C.accent },
+          });
+        }
+        function tag(s, t, x) {
+          s.addText(t, {
+            x: x || 0.7,
+            y: 0.42,
+            w: 6,
+            h: 0.28,
+            fontSize: 9,
+            fontFace: "Consolas",
+            color: C.accent,
+            bold: false,
+          });
+        }
+        function ttl(s, t, x, y, w) {
+          s.addText(t, {
+            x: x || 0.7,
+            y: y || 0.72,
+            w: w || 11,
+            h: 0.7,
+            fontSize: 28,
+            fontFace: "Arial",
+            color: C.fg,
+            bold: true,
+          });
+        }
+        function sub(s, t, x, y, w, h) {
+          s.addText(t, {
+            x: x || 0.7,
+            y: y || 1.5,
+            w: w || 9,
+            h: h || 0.6,
+            fontSize: 13,
+            fontFace: "Arial",
+            color: C.muted,
+            lineSpacing: 18,
+          });
+        }
+        function card(s, x, y, w, h, titleText, bodyText) {
+          s.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+            x,
+            y,
+            w,
+            h,
+            fill: { color: C.card },
+            line: { color: C.border, width: 0.75 },
+            rectRadius: 0.08,
+          });
+          let ty = y + 0.18;
+          if (titleText) {
+            s.addText(titleText, {
+              x: x + 0.22,
+              y: ty,
+              w: w - 0.44,
+              h: 0.32,
+              fontSize: 13,
+              fontFace: "Arial",
+              color: C.fg,
+              bold: true,
+            });
+            ty += 0.38;
+          }
+          if (bodyText) {
+            s.addText(bodyText, {
+              x: x + 0.22,
+              y: ty,
+              w: w - 0.44,
+              h: y + h - ty - 0.15,
+              fontSize: 10.5,
+              fontFace: "Arial",
+              color: C.muted,
+              lineSpacing: 15,
+              valign: "top",
+            });
+          }
+        }
+        function foot(s, num) {
+          s.addText("// SecurePipelineHub", {
+            x: 0.7,
+            y: 7.05,
+            w: 4,
+            h: 0.25,
+            fontSize: 8,
+            fontFace: "Consolas",
+            color: C.subtle,
+          });
+          s.addText(num + " / 10", {
+            x: 10.5,
+            y: 7.05,
+            w: 2.5,
+            h: 0.25,
+            fontSize: 8,
+            fontFace: "Consolas",
+            color: C.subtle,
+            align: "right",
+          });
+        }
+
+        /* ===================== SLIDE 1: TITLE ===================== */
+        let s1 = pptx.addSlide();
+        s1.background = { color: C.bg };
+        bar(s1);
+        tag(s1, "ARCHITECTURE PRESENTATION");
+        s1.addText("SecurePipelineHub", {
+          x: 0.7,
+          y: 1.6,
+          w: 10,
+          h: 1.1,
+          fontSize: 44,
+          fontFace: "Arial",
+          color: C.fg,
+          bold: true,
+        });
+        sub(
+          s1,
+          "A DevSecOps pipeline platform — integrates five security scanners, enriches output through a multi-stage processing chain, stores findings, and exposes them via a REST API to a React dashboard.",
+          0.7,
+          2.8,
+          9,
+          1.2,
+        );
+
+        /* Stat boxes */
+        const stats = [
+          { val: "5", label: "Scanners" },
+          { val: "6", label: "Pipeline Stages" },
+          { val: "CI/CD", label: "Native Integration" },
+        ];
+        stats.forEach((st, i) => {
+          const sx = 0.7 + i * 3.95;
+          s1.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+            x: sx,
+            y: 5.0,
+            w: 3.6,
+            h: 1.5,
+            fill: { color: C.card },
+            line: { color: C.border, width: 0.75 },
+            rectRadius: 0.1,
+          });
+          s1.addText(st.val, {
+            x: sx,
+            y: 5.1,
+            w: 3.6,
+            h: 0.8,
+            fontSize: 32,
+            fontFace: "Arial",
+            color: C.accent,
+            bold: true,
+            align: "center",
+            valign: "bottom",
+          });
+          s1.addText(st.label, {
+            x: sx,
+            y: 5.85,
+            w: 3.6,
+            h: 0.4,
+            fontSize: 11,
+            fontFace: "Arial",
+            color: C.muted,
+            align: "center",
+          });
+        });
+        foot(s1, 1);
+
+        /* ===================== SLIDE 2: THE PROBLEM ===================== */
+        let s2 = pptx.addSlide();
+        s2.background = { color: C.bg };
+        bar(s2);
+        tag(s2, "THE CHALLENGE");
+        ttl(s2, "Security Tools Produce Noisy, Fragmented Output");
+        sub(
+          s2,
+          "Teams run multiple scanners — each with a different schema, no risk context, no ownership, and no unified view.",
+          0.7,
+          1.5,
+          10,
+        );
+
+        const problems = [
+          {
+            title: "Incompatible Formats",
+            body: "Every scanner outputs a different JSON structure. No unified schema to query, aggregate, or report against.",
+            color: C.red,
+          },
+          {
+            title: "No Ownership",
+            body: "Findings land in a generic queue with no clear owner. The person who wrote the vulnerable code is never contacted.",
+            color: C.orange,
+          },
+          {
+            title: "No Deadlines",
+            body: "Without SLA tracking, a CRITICAL CVE can sit open for months alongside trivial LOW findings. No escalation path.",
+            color: C.yellow,
+          },
+        ];
+        problems.forEach((p, i) => {
+          const px = 0.7 + i * 3.95;
+          s2.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+            x: px,
+            y: 2.5,
+            w: 3.6,
+            h: 3.8,
+            fill: { color: C.card },
+            line: { color: C.border, width: 0.75 },
+            rectRadius: 0.1,
+          });
+          /* Icon circle */
+          s2.addShape(pptx.shapes.OVAL, {
+            x: px + 0.2,
+            y: 2.75,
+            w: 0.5,
+            h: 0.5,
+            fill: { color: C.bg },
+          });
+          s2.addText("!", {
+            x: px + 0.2,
+            y: 2.75,
+            w: 0.5,
+            h: 0.5,
+            fontSize: 18,
+            fontFace: "Arial",
+            color: p.color,
+            bold: true,
+            align: "center",
+            valign: "middle",
+          });
+          s2.addText(p.title, {
+            x: px + 0.9,
+            y: 2.78,
+            w: 2.5,
+            h: 0.45,
+            fontSize: 15,
+            fontFace: "Arial",
+            color: C.fg,
+            bold: true,
+            valign: "middle",
+          });
+          s2.addText(p.body, {
+            x: px + 0.25,
+            y: 3.5,
+            w: 3.1,
+            h: 2.5,
+            fontSize: 11.5,
+            fontFace: "Arial",
+            color: C.muted,
+            lineSpacing: 17,
+            valign: "top",
+          });
+        });
+        foot(s2, 2);
+
+        /* ===================== SLIDE 3: SOLUTION OVERVIEW ===================== */
+        let s3 = pptx.addSlide();
+        s3.background = { color: C.bg };
+        bar(s3);
+        tag(s3, "THE SOLUTION");
+        ttl(s3, "One Pipeline. Every Scanner. Full Context.");
+
+        /* 5 scanner badges */
+        const scanners = [
+          { name: "Semgrep", type: "SAST", color: C.accent },
+          { name: "Gitleaks", type: "Secrets", color: C.red },
+          { name: "pip-audit", type: "SCA", color: C.orange },
+          { name: "Trivy", type: "Container CVEs", color: C.blue },
+          { name: "OWASP ZAP", type: "DAST", color: C.yellow },
+        ];
+        scanners.forEach((sc, i) => {
+          const sx = 0.7 + i * 2.28;
+          s3.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+            x: sx,
+            y: 1.6,
+            w: 2.1,
+            h: 1.2,
+            fill: { color: C.card },
+            line: { color: C.border, width: 0.75 },
+            rectRadius: 0.08,
+          });
+          s3.addText(sc.name, {
+            x: sx,
+            y: 1.7,
+            w: 2.1,
+            h: 0.45,
+            fontSize: 14,
+            fontFace: "Arial",
+            color: sc.color,
+            bold: true,
+            align: "center",
+          });
+          s3.addText(sc.type, {
+            x: sx,
+            y: 2.15,
+            w: 2.1,
+            h: 0.35,
+            fontSize: 10,
+            fontFace: "Arial",
+            color: C.muted,
+            align: "center",
+          });
+        });
+
+        /* Key capabilities */
+        const caps = [
+          "Normalizes all scanner output into a single unified schema with UUID, severity, CVE/CWE IDs, and remediation",
+          "Enriches findings with contextual risk scores (0–100), ownership assignment, and SLA deadlines",
+          "Maps every finding to OWASP Top 10 2021 categories via CWE lookup and keyword fallback",
+          "Serves enriched data through an authenticated Flask API with role-based access control",
+          "Presents findings via a React dashboard with 9 views: overview, table, detail, risk chart, SLA, compliance, trends, login, and admin",
+        ];
+        caps.forEach((c, i) => {
+          s3.addText(
+            [
+              {
+                text: "\u2022  ",
+                options: { color: C.accent, fontSize: 13, bold: true },
+              },
+              { text: c, options: { color: C.fg, fontSize: 12.5 } },
+            ],
+            {
+              x: 0.9,
+              y: 3.2 + i * 0.65,
+              w: 11,
+              h: 0.55,
+              fontFace: "Arial",
+              lineSpacing: 16,
+              valign: "top",
+            },
+          );
+        });
+        foot(s3, 3);
+
+        /* ===================== SLIDE 4: ARCHITECTURE ===================== */
+        let s4 = pptx.addSlide();
+        s4.background = { color: C.bg };
+        bar(s4);
+        tag(s4, "HIGH-LEVEL ARCHITECTURE");
+        ttl(s4, "Three Layers, One Data Flow");
+        sub(
+          s4,
+          "Each pipeline stage reads JSON from the previous stage and writes the next — pure linear chain with no coupling.",
+          0.7,
+          1.5,
+          10,
+        );
+
+        const layers = [
+          {
+            title: "Processing Pipeline",
+            items: [
+              "normalizer.py \u2014 unified schema",
+              "risk_engine.py \u2014 contextual scoring",
+              "ownership_engine.py \u2014 assign owners",
+              "sla_engine.py \u2014 deadline tracking",
+              "compliance_mapper.py \u2014 OWASP tags",
+              "storage.py \u2014 persist + deduplicate",
+            ],
+          },
+          {
+            title: "CI Integration",
+            items: [
+              "commit_scanner.py",
+              "ci_runner.py",
+              "GitHub Actions workflow",
+              "PR comment script",
+              "CRITICAL = PR block",
+            ],
+          },
+          {
+            title: "Presentation Layer",
+            items: [
+              "Flask REST API (auth, RBAC)",
+              "Background git poller thread",
+              "React dashboard (9 views)",
+              "Stats, trends, compliance",
+            ],
+          },
+        ];
+        layers.forEach((l, i) => {
+          const lx = 0.7 + i * 4.08;
+          s4.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+            x: lx,
+            y: 2.4,
+            w: 3.78,
+            h: 4.4,
+            fill: { color: C.card },
+            line: { color: C.border, width: 0.75 },
+            rectRadius: 0.1,
+          });
+          s4.addText(l.title, {
+            x: lx + 0.22,
+            y: 2.55,
+            w: 3.34,
+            h: 0.35,
+            fontSize: 13,
+            fontFace: "Arial",
+            color: C.accent,
+            bold: true,
+          });
+          /* Separator line */
+          s4.addShape(pptx.shapes.RECTANGLE, {
+            x: lx + 0.22,
+            y: 2.95,
+            w: 3.34,
+            h: 0.015,
+            fill: { color: C.border },
+          });
+          let ly = 3.1;
+          l.items.forEach((item) => {
+            s4.addText("\u2022  " + item, {
+              x: lx + 0.22,
+              y: ly,
+              w: 3.34,
+              h: 0.4,
+              fontSize: 11,
+              fontFace: "Arial",
+              color: C.muted,
+              lineSpacing: 14,
+            });
+            ly += 0.48;
+          });
+        });
+        foot(s4, 4);
+
+        /* ===================== SLIDE 5: PROCESSING PIPELINE ===================== */
+        let s5 = pptx.addSlide();
+        s5.background = { color: C.bg };
+        bar(s5);
+        tag(s5, "PROCESSING PIPELINE");
+        ttl(s5, "Linear 6-Stage Chain");
+        sub(
+          s5,
+          "Raw scanner output enters at stage 1 and exits at stage 6 as fully enriched, stored findings.",
+          0.7,
+          1.5,
+          10,
+        );
+
+        const stages = [
+          { num: "01", name: "Normalizer", icon: "\u2192" },
+          { num: "02", name: "Risk Engine", icon: "\u26A1" },
+          { num: "03", name: "Ownership", icon: "\u2691" },
+          { num: "04", name: "SLA Engine", icon: "\u23F1" },
+          { num: "05", name: "Compliance", icon: "\u2713" },
+          { num: "06", name: "Storage", icon: "\u2302" },
+        ];
+        const bw = 1.65,
+          bh = 1.8,
+          ag = 0.24;
+        const totalW = 6 * bw + 5 * ag;
+        const startX = 0.7 + (11.93 - totalW) / 2;
+
+        stages.forEach((st, i) => {
+          const sx = startX + i * (bw + ag);
+          s5.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+            x: sx,
+            y: 2.5,
+            w: bw,
+            h: bh,
+            fill: { color: C.card },
+            line: { color: C.border, width: 0.75 },
+            rectRadius: 0.08,
+          });
+          s5.addText("STAGE " + st.num, {
+            x: sx,
+            y: 2.6,
+            w: bw,
+            h: 0.25,
+            fontSize: 8,
+            fontFace: "Consolas",
+            color: C.muted,
+            align: "center",
+          });
+          s5.addText(st.icon, {
+            x: sx,
+            y: 2.95,
+            w: bw,
+            h: 0.55,
+            fontSize: 24,
+            color: C.accent,
+            align: "center",
+            valign: "middle",
+          });
+          s5.addText(st.name, {
+            x: sx,
+            y: 3.55,
+            w: bw,
+            h: 0.4,
+            fontSize: 12,
+            fontFace: "Arial",
+            color: C.fg,
+            bold: true,
+            align: "center",
+          });
+          /* Arrow */
+          if (i < 5) {
+            s5.addText("\u25B6", {
+              x: sx + bw,
+              y: 3.1,
+              w: ag,
+              h: 0.4,
+              fontSize: 12,
+              color: C.border,
+              align: "center",
+              valign: "middle",
+            });
+          }
+        });
+
+        s5.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+          x: 0.7,
+          y: 4.8,
+          w: 11.93,
+          h: 1.6,
+          fill: { color: C.card },
+          line: { color: C.border, width: 0.5 },
+          rectRadius: 0.08,
+        });
+        s5.addText(
+          [
+            {
+              text: "File-based inter-stage communication",
+              options: { bold: true, color: C.fg, fontSize: 12 },
+            },
+            {
+              text: "\nEach stage reads the JSON file written by the previous stage. This makes stages independently testable and replaceable. No in-memory coupling between any two stages.",
+              options: { color: C.muted, fontSize: 11 },
+            },
+          ],
+          {
+            x: 1.0,
+            y: 4.95,
+            w: 11.33,
+            h: 1.3,
+            fontFace: "Arial",
+            lineSpacing: 16,
+            valign: "top",
+          },
+        );
+        foot(s5, 5);
+
+        /* ===================== SLIDE 6: RISK SCORING ===================== */
+        let s6 = pptx.addSlide();
+        s6.background = { color: C.bg };
+        bar(s6);
+        tag(s6, "STAGE 02 \u2014 RISK ENGINE");
+        ttl(s6, "Contextual Risk Scoring");
+        sub(
+          s6,
+          "Goes beyond scanner severity by factoring in exploitability, asset criticality, and data sensitivity.",
+          0.7,
+          1.5,
+          10,
+        );
+
+        /* Formula box */
+        s6.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+          x: 0.7,
+          y: 2.3,
+          w: 11.93,
+          h: 0.9,
+          fill: { color: C.accentDim },
+          line: { color: "00E5A040", width: 1 },
+          rectRadius: 0.08,
+        });
+        s6.addText(
+          [
+            {
+              text: "risk_score",
+              options: {
+                color: C.fg,
+                bold: true,
+                fontSize: 15,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: " = (",
+              options: { color: C.muted, fontSize: 15, fontFace: "Consolas" },
+            },
+            {
+              text: "base_severity",
+              options: {
+                color: C.fg,
+                bold: true,
+                fontSize: 15,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: " \u00D7 ",
+              options: { color: C.muted, fontSize: 15, fontFace: "Consolas" },
+            },
+            {
+              text: "exploitability",
+              options: {
+                color: C.fg,
+                bold: true,
+                fontSize: 15,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: " \u00D7 ",
+              options: { color: C.muted, fontSize: 15, fontFace: "Consolas" },
+            },
+            {
+              text: "asset_criticality",
+              options: {
+                color: C.fg,
+                bold: true,
+                fontSize: 15,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: " \u00D7 ",
+              options: { color: C.muted, fontSize: 15, fontFace: "Consolas" },
+            },
+            {
+              text: "data_sensitivity",
+              options: {
+                color: C.fg,
+                bold: true,
+                fontSize: 15,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: ") / ",
+              options: { color: C.muted, fontSize: 15, fontFace: "Consolas" },
+            },
+            {
+              text: "mitigations",
+              options: {
+                color: C.fg,
+                bold: true,
+                fontSize: 15,
+                fontFace: "Consolas",
+              },
+            },
+          ],
+          {
+            x: 0.7,
+            y: 2.3,
+            w: 11.93,
+            h: 0.9,
+            align: "center",
+            valign: "middle",
+          },
+        );
+        s6.addText(
+          "Normalised against max reference of 200, then bucketed into priority tiers.",
+          {
+            x: 0.7,
+            y: 3.25,
+            w: 11.93,
+            h: 0.35,
+            fontSize: 11,
+            fontFace: "Arial",
+            color: C.muted,
+            align: "center",
+          },
+        );
+
+        /* Left: Exploitability */
+        card(s6, 0.7, 3.9, 5.7, 2.8, "Exploitability Modifiers", null);
+        s6.addText(
+          [
+            {
+              text: "3.0  ",
+              options: {
+                color: C.red,
+                bold: true,
+                fontSize: 13,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: "known_exploit \u2014 Gitleaks secrets\n",
+              options: { color: C.muted, fontSize: 11.5, fontFace: "Arial" },
+            },
+            {
+              text: "2.0  ",
+              options: {
+                color: C.orange,
+                bold: true,
+                fontSize: 13,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: "poc_available \u2014 Known CVEs\n",
+              options: { color: C.muted, fontSize: 11.5, fontFace: "Arial" },
+            },
+            {
+              text: "1.0  ",
+              options: {
+                color: C.accent,
+                bold: true,
+                fontSize: 13,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: "default \u2014 All other findings",
+              options: { color: C.muted, fontSize: 11.5, fontFace: "Arial" },
+            },
+          ],
+          { x: 0.92, y: 4.4, w: 5.3, h: 2.0, lineSpacing: 20, valign: "top" },
+        );
+
+        /* Right: Priority buckets */
+        card(s6, 6.65, 3.9, 5.98, 2.8, "Priority Buckets", null);
+        s6.addText(
+          [
+            {
+              text: "CRITICAL",
+              options: { color: C.red, bold: true, fontSize: 12 },
+            },
+            {
+              text: "  score \u2265 80\n",
+              options: { color: C.muted, fontSize: 11.5 },
+            },
+            {
+              text: "HIGH",
+              options: { color: C.orange, bold: true, fontSize: 12 },
+            },
+            {
+              text: "     score \u2265 60\n",
+              options: { color: C.muted, fontSize: 11.5 },
+            },
+            {
+              text: "MEDIUM",
+              options: { color: C.yellow, bold: true, fontSize: 12 },
+            },
+            {
+              text: "   score \u2265 40\n",
+              options: { color: C.muted, fontSize: 11.5 },
+            },
+            {
+              text: "LOW",
+              options: { color: C.accent, bold: true, fontSize: 12 },
+            },
+            {
+              text: "       score \u2265 20\n",
+              options: { color: C.muted, fontSize: 11.5 },
+            },
+            {
+              text: "INFO",
+              options: { color: C.blue, bold: true, fontSize: 12 },
+            },
+            {
+              text: "      score < 20",
+              options: { color: C.muted, fontSize: 11.5 },
+            },
+          ],
+          {
+            x: 6.87,
+            y: 4.4,
+            w: 5.55,
+            h: 2.0,
+            fontFace: "Consolas",
+            lineSpacing: 18,
+            valign: "top",
+          },
+        );
+        foot(s6, 6);
+
+        /* ===================== SLIDE 7: OWNERSHIP & SLA ===================== */
+        let s7 = pptx.addSlide();
+        s7.background = { color: C.bg };
+        bar(s7);
+        tag(s7, "STAGES 03 & 04");
+        ttl(s7, "Ownership Assignment & SLA Tracking");
+
+        /* Left: Ownership */
+        s7.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+          x: 0.7,
+          y: 1.6,
+          w: 5.7,
+          h: 5.2,
+          fill: { color: C.card },
+          line: { color: C.border, width: 0.75 },
+          rectRadius: 0.1,
+        });
+        s7.addText("Ownership \u2014 4-Level Fallback", {
+          x: 0.92,
+          y: 1.75,
+          w: 5.3,
+          h: 0.35,
+          fontSize: 13,
+          fontFace: "Arial",
+          color: C.accent,
+          bold: true,
+        });
+        s7.addShape(pptx.shapes.RECTANGLE, {
+          x: 0.92,
+          y: 2.15,
+          w: 5.3,
+          h: 0.015,
+          fill: { color: C.border },
+        });
+
+        const owners = [
+          {
+            num: "1",
+            title: "CODEOWNERS Pattern Match",
+            desc: "Last-match-wins per GitHub semantics. src/app.py \u2192 sahil, src/ \u2192 backend-team, *.py \u2192 python-leads",
+          },
+          {
+            num: "2",
+            title: "Git Blame on Specific Line",
+            desc: "Runs git blame on the exact file and line number to identify the last committer",
+          },
+          {
+            num: "3",
+            title: "Source-Based Defaults",
+            desc: "gitleaks \u2192 security-team, trivy \u2192 devops-team",
+          },
+          {
+            num: "4",
+            title: "Global Fallback",
+            desc: "Configurable default owner catches all remaining findings",
+          },
+        ];
+        owners.forEach((o, i) => {
+          const oy = 2.35 + i * 0.85;
+          s7.addShape(pptx.shapes.OVAL, {
+            x: 1.0,
+            y: oy + 0.08,
+            w: 0.32,
+            h: 0.32,
+            fill: { color: C.accentDim },
+          });
+          s7.addText(o.num, {
+            x: 1.0,
+            y: oy + 0.08,
+            w: 0.32,
+            h: 0.32,
+            fontSize: 11,
+            fontFace: "Arial",
+            color: C.accent,
+            bold: true,
+            align: "center",
+            valign: "middle",
+          });
+          s7.addText(o.title, {
+            x: 1.5,
+            y: oy,
+            w: 4.6,
+            h: 0.28,
+            fontSize: 11.5,
+            fontFace: "Arial",
+            color: C.fg,
+            bold: true,
+          });
+          s7.addText(o.desc, {
+            x: 1.5,
+            y: oy + 0.3,
+            w: 4.6,
+            h: 0.45,
+            fontSize: 9.5,
+            fontFace: "Arial",
+            color: C.muted,
+            lineSpacing: 13,
+          });
+        });
+        s7.addText("CI override: commit author becomes the assignee", {
+          x: 0.92,
+          y: 5.85,
+          w: 5.3,
+          h: 0.35,
+          fontSize: 10,
+          fontFace: "Arial",
+          color: C.accent,
+          italic: true,
+        });
+        s7.addShape(pptx.shapes.RECTANGLE, {
+          x: 0.92,
+          y: 5.72,
+          w: 5.3,
+          h: 0.015,
+          fill: { color: C.border },
+        });
+
+        /* Right: SLA Table */
+        s7.addText("SLA Deadlines", {
+          x: 6.65,
+          y: 1.6,
+          w: 5.98,
+          h: 0.35,
+          fontSize: 13,
+          fontFace: "Arial",
+          color: C.accent,
+          bold: true,
+        });
+
+        const slaRows = [
+          [
+            {
+              text: "Priority",
+              options: {
+                bold: true,
+                color: C.accent,
+                fill: { color: C.bg },
+                fontSize: 10,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: "SLA",
+              options: {
+                bold: true,
+                color: C.accent,
+                fill: { color: C.bg },
+                fontSize: 10,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: "Escalation",
+              options: {
+                bold: true,
+                color: C.accent,
+                fill: { color: C.bg },
+                fontSize: 10,
+                fontFace: "Consolas",
+              },
+            },
+            {
+              text: "Status Flow",
+              options: {
+                bold: true,
+                color: C.accent,
+                fill: { color: C.bg },
+                fontSize: 10,
+                fontFace: "Consolas",
+              },
+            },
+          ],
+          [
+            {
+              text: "CRITICAL",
+              options: { color: C.red, bold: true, fontSize: 10.5 },
+            },
+            { text: "1 day", options: { color: C.muted, fontSize: 10.5 } },
+            { text: "50%", options: { color: C.muted, fontSize: 10.5 } },
+            {
+              text: "OPEN \u2192 WARNING \u2192 OVERDUE",
+              options: { color: C.muted, fontSize: 10 },
+            },
+          ],
+          [
+            {
+              text: "HIGH",
+              options: { color: C.orange, bold: true, fontSize: 10.5 },
+            },
+            { text: "7 days", options: { color: C.muted, fontSize: 10.5 } },
+            { text: "50%", options: { color: C.muted, fontSize: 10.5 } },
+            {
+              text: "OPEN \u2192 WARNING \u2192 OVERDUE",
+              options: { color: C.muted, fontSize: 10 },
+            },
+          ],
+          [
+            {
+              text: "MEDIUM",
+              options: { color: C.yellow, bold: true, fontSize: 10.5 },
+            },
+            { text: "30 days", options: { color: C.muted, fontSize: 10.5 } },
+            { text: "50%", options: { color: C.muted, fontSize: 10.5 } },
+            {
+              text: "OPEN \u2192 WARNING \u2192 OVERDUE",
+              options: { color: C.muted, fontSize: 10 },
+            },
+          ],
+          [
+            {
+              text: "LOW",
+              options: { color: C.accent, bold: true, fontSize: 10.5 },
+            },
+            { text: "90 days", options: { color: C.muted, fontSize: 10.5 } },
+            { text: "50%", options: { color: C.muted, fontSize: 10.5 } },
+            {
+              text: "OPEN \u2192 WARNING \u2192 OVERDUE",
+              options: { color: C.muted, fontSize: 10 },
+            },
+          ],
+          [
+            {
+              text: "INFO",
+              options: { color: C.blue, bold: true, fontSize: 10.5 },
+            },
+            { text: "None", options: { color: C.muted, fontSize: 10.5 } },
+            { text: "N/A", options: { color: C.muted, fontSize: 10.5 } },
+            { text: "NO_SLA", options: { color: C.muted, fontSize: 10.5 } },
+          ],
+        ];
+        s7.addTable(slaRows, {
+          x: 6.65,
+          y: 2.0,
+          w: 5.98,
+          colW: [1.3, 1.0, 1.2, 3.48],
+          border: { type: "solid", pt: 0.5, color: C.border },
+          fontSize: 10.5,
+          fontFace: "Arial",
+          color: C.muted,
+          autoPage: false,
+        });
+
+        s7.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+          x: 6.65,
+          y: 5.1,
+          w: 5.98,
+          h: 0.7,
+          fill: { color: C.accentDim },
+          line: { color: "00E5A030", width: 0.5 },
+          rectRadius: 0.06,
+        });
+        s7.addText(
+          "sentinel_escalate = true for all Gitleaks findings \u2014 secrets never wait for SLA windows",
+          {
+            x: 6.87,
+            y: 5.1,
+            w: 5.55,
+            h: 0.7,
+            fontSize: 10,
+            fontFace: "Arial",
+            color: C.accent,
+            valign: "middle",
+            italic: true,
+          },
+        );
+        foot(s7, 7);
+
+        /* ===================== SLIDE 8: COMPLIANCE & STORAGE ===================== */
+        let s8 = pptx.addSlide();
+        s8.background = { color: C.bg };
+        bar(s8);
+        tag(s8, "STAGES 05 & 06");
+        ttl(s8, "Compliance Mapping & Smart Storage");
+
+        /* Left: Compliance */
+        card(s8, 0.7, 1.6, 5.7, 2.8, "OWASP Top 10 2021 Mapping", null);
+        s8.addText(
+          [
+            {
+              text: "Method 1: CWE Lookup (Primary)\n",
+              options: { bold: true, color: C.fg, fontSize: 11.5 },
+            },
+            {
+              text: "Finds with a CWE ID are matched against owasp_mapping.json for high-accuracy category assignment (A01\u2013A10).\n\n",
+              options: { color: C.muted, fontSize: 10.5 },
+            },
+            {
+              text: "Method 2: Keyword Fallback\n",
+              options: { bold: true, color: C.fg, fontSize: 11.5 },
+            },
+            {
+              text: 'When no CWE is available, scans title/description for keywords ("injection", "auth", "crypto") mapped to OWASP categories.',
+              options: { color: C.muted, fontSize: 10.5 },
+            },
+          ],
+          {
+            x: 0.92,
+            y: 2.1,
+            w: 5.3,
+            h: 2.1,
+            fontFace: "Arial",
+            lineSpacing: 16,
+            valign: "top",
+          },
+        );
+
+        /* Right: Storage */
+        card(s8, 6.65, 1.6, 5.98, 2.8, "Two-Stage Deduplication", null);
+        s8.addText(
+          [
+            {
+              text: "Stage 1: UUID Dedup\n",
+              options: { bold: true, color: C.fg, fontSize: 11.5 },
+            },
+            {
+              text: "Same UUID across files \u2192 newest file wins. Preserves API state changes (e.g. false_positive toggle).\n\n",
+              options: { color: C.muted, fontSize: 10.5 },
+            },
+            {
+              text: "Stage 2: Content Fingerprint\n",
+              options: { bold: true, color: C.fg, fontSize: 11.5 },
+            },
+            {
+              text: "Keyed on source + title + file_path + line_number. Newest commit wins. Prevents same CVE appearing once per CI run.",
+              options: { color: C.muted, fontSize: 10.5 },
+            },
+          ],
+          {
+            x: 6.87,
+            y: 2.1,
+            w: 5.55,
+            h: 2.1,
+            fontFace: "Arial",
+            lineSpacing: 16,
+            valign: "top",
+          },
+        );
+
+        /* Bottom: Query APIs */
+        card(s8, 0.7, 4.7, 11.93, 2.1, "Storage Query APIs", null);
+        const apis = [
+          {
+            name: "query_findings()",
+            desc: "Filters: severity, source, priority, assignee, sla_status, false_positive exclusion. Paginated.",
+          },
+          {
+            name: "get_stats()",
+            desc: "Aggregated counts by severity, priority, source, SLA status \u2014 powers dashboard overview.",
+          },
+          {
+            name: "get_compliance_status()",
+            desc: "Breakdown of findings per OWASP Top 10 category for compliance reporting.",
+          },
+        ];
+        apis.forEach((a, i) => {
+          const ay = 5.2 + i * 0.48;
+          s8.addText(
+            [
+              {
+                text: a.name + "  ",
+                options: {
+                  color: C.accent,
+                  bold: true,
+                  fontSize: 11,
+                  fontFace: "Consolas",
+                },
+              },
+              {
+                text: a.desc,
+                options: { color: C.muted, fontSize: 10.5, fontFace: "Arial" },
+              },
+            ],
+            { x: 0.92, y: ay, w: 11.5, h: 0.4, lineSpacing: 14 },
+          );
+        });
+        foot(s8, 8);
+
+        /* ===================== SLIDE 9: CI/CD & API ===================== */
+        let s9 = pptx.addSlide();
+        s9.background = { color: C.bg };
+        bar(s9);
+        tag(s9, "INTEGRATION LAYER");
+        ttl(s9, "GitHub Actions & REST API");
+
+        /* Left: CI */
+        s9.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+          x: 0.7,
+          y: 1.6,
+          w: 5.7,
+          h: 5.2,
+          fill: { color: C.card },
+          line: { color: C.border, width: 0.75 },
+          rectRadius: 0.1,
+        });
+        s9.addText("CI/CD Pipeline", {
+          x: 0.92,
+          y: 1.75,
+          w: 5.3,
+          h: 0.35,
+          fontSize: 13,
+          fontFace: "Arial",
+          color: C.accent,
+          bold: true,
+        });
+        s9.addShape(pptx.shapes.RECTANGLE, {
+          x: 0.92,
+          y: 2.15,
+          w: 5.3,
+          h: 0.015,
+          fill: { color: C.border },
+        });
+
+        const ciItems = [
+          "Triggers on push/PR to main",
+          "Excludes data/findings/** (prevent loops)",
+          "commit_scanner.py checks out target repo at commit SHA",
+          "Runs Semgrep (3 rule packs), Gitleaks, Trivy fs",
+          "Tags findings with commit metadata (author, SHA, date, message)",
+          "Overrides ownership \u2192 commit author",
+          "Commits findings back to SecurePipelineHub repo",
+          "Posts PR comment via post_pr_comment.py",
+          "Exit code 1 if CRITICAL \u2192 blocks PR merge",
+        ];
+        ciItems.forEach((item, i) => {
+          s9.addText("\u2022  " + item, {
+            x: 0.92,
+            y: 2.35 + i * 0.45,
+            w: 5.3,
+            h: 0.4,
+            fontSize: 10.5,
+            fontFace: "Arial",
+            color: C.muted,
+            lineSpacing: 14,
+          });
+        });
+
+        /* Right: API */
+        s9.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+          x: 6.65,
+          y: 1.6,
+          w: 5.98,
+          h: 5.2,
+          fill: { color: C.card },
+          line: { color: C.border, width: 0.75 },
+          rectRadius: 0.1,
+        });
+        s9.addText("Flask REST API", {
+          x: 6.87,
+          y: 1.75,
+          w: 5.55,
+          h: 0.35,
+          fontSize: 13,
+          fontFace: "Arial",
+          color: C.accent,
+          bold: true,
+        });
+        s9.addShape(pptx.shapes.RECTANGLE, {
+          x: 6.87,
+          y: 2.15,
+          w: 5.55,
+          h: 0.015,
+          fill: { color: C.border },
+        });
+
+        /* Auth box */
+        s9.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+          x: 6.87,
+          y: 2.35,
+          w: 5.55,
+          h: 1.3,
+          fill: { color: C.bg },
+          line: { color: C.border, width: 0.5 },
+          rectRadius: 0.06,
+        });
+        s9.addText(
+          [
+            {
+              text: "Authentication\n",
+              options: { bold: true, color: C.fg, fontSize: 11 },
+            },
+            {
+              text: "SQLite users \u2022 Werkzeug hashes \u2022 8hr tokens\nAdmin-only signup \u2022 RBAC: non-admin sees only\nfindings where email matches ci_author or assignee",
+              options: { color: C.muted, fontSize: 10 },
+            },
+          ],
+          {
+            x: 7.07,
+            y: 2.42,
+            w: 5.15,
+            h: 1.15,
+            fontFace: "Arial",
+            lineSpacing: 15,
+            valign: "top",
+          },
+        );
+
+        /* Endpoints */
+        s9.addText("Endpoints", {
+          x: 6.87,
+          y: 3.85,
+          w: 5.55,
+          h: 0.3,
+          fontSize: 11,
+          fontFace: "Arial",
+          color: C.fg,
+          bold: true,
+        });
+        const endpoints = [
+          { method: "GET", path: "/api/findings", mc: C.accent },
+          { method: "PATCH", path: "/api/findings/:id", mc: C.orange },
+          { method: "POST", path: "/api/findings/:id/comments", mc: C.blue },
+          {
+            method: "GET",
+            path: "/api/stats  /api/compliance  /api/trends",
+            mc: C.accent,
+          },
+        ];
+        endpoints.forEach((ep, i) => {
+          const ey = 4.2 + i * 0.38;
+          s9.addText(ep.method, {
+            x: 6.87,
+            y: ey,
+            w: 0.7,
+            h: 0.3,
+            fontSize: 9,
+            fontFace: "Consolas",
+            color: ep.mc,
+            bold: true,
+            valign: "middle",
+          });
+          s9.addText(ep.path, {
+            x: 7.65,
+            y: ey,
+            w: 4.77,
+            h: 0.3,
+            fontSize: 10,
+            fontFace: "Consolas",
+            color: C.muted,
+            valign: "middle",
+          });
+        });
+
+        /* Git poller note */
+        s9.addShape(pptx.shapes.ROUNDED_RECTANGLE, {
+          x: 6.87,
+          y: 5.8,
+          w: 5.55,
+          h: 0.8,
+          fill: { color: C.accentDim },
+          line: { color: "00E5A030", width: 0.5 },
+          rectRadius: 0.06,
+        });
+        s9.addText(
+          "Background git poller fetches origin/main every 60s \u2014 picks up new CI findings without server restart",
+          {
+            x: 7.07,
+            y: 5.8,
+            w: 5.15,
+            h: 0.8,
+            fontSize: 10,
+            fontFace: "Arial",
+            color: C.accent,
+            valign: "middle",
+            italic: true,
+          },
+        );
+        foot(s9, 9);
+
+        /* ===================== SLIDE 10: KEY DIFFERENTIATORS ===================== */
+        let s10 = pptx.addSlide();
+        s10.background = { color: C.bg };
+        bar(s10);
+        tag(s10, "WHY SECUREPIPELINEHUB");
+        ttl(s10, "Key Differentiators");
+
+        const diffs = [
+          {
+            title: "Scanner-Agnostic Pipeline",
+            body: "Add a new scanner by writing one parser. Risk, ownership, SLA, and compliance handle it automatically.",
+          },
+          {
+            title: "Context-Aware Scoring",
+            body: "A LOW finding in a critical asset path scores higher than a HIGH finding in a test directory.",
+          },
+          {
+            title: "CI-Native Ownership",
+            body: "In CI mode, findings go to the commit author \u2014 the person who introduced the vulnerability.",
+          },
+          {
+            title: "Zero-Downtime Data Sync",
+            body: "Background git poller picks up new CI findings without restarting the API server.",
+          },
+          {
+            title: "Two-Stage Deduplication",
+            body: "UUID dedup preserves API state. Content fingerprint dedup prevents CI noise inflation.",
+          },
+          {
+            title: "Hard-Gated PR Blocking",
+            body: "CRITICAL findings exit with code 1 \u2014 the PR cannot merge until resolved or marked false positive.",
+          },
+        ];
+        diffs.forEach((d, i) => {
+          const col = i % 3;
+          const row = Math.floor(i / 3);
+          const dx = 0.7 + col * 4.08;
+          const dy = 1.6 + row * 2.85;
+          card(s10, dx, dy, 3.78, 2.5, d.title, d.body);
+        });
+        foot(s10, 10);
+
+        /* ===================== SAVE ===================== */
+        return pptx.writeFile({
+          fileName: "SecurePipelineHub_Architecture.pptx",
+        });
+      }
+
+      /* ========== BUTTON HANDLER ========== */
+      const btn = document.getElementById("dl");
+      btn.addEventListener("click", async () => {
+        if (btn.disabled) return;
+        btn.disabled = true;
+        btn.innerHTML =
+          '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+        try {
+          await generatePPTX();
+          btn.innerHTML = '<i class="fa-solid fa-check"></i> Downloaded';
+          btn.classList.add("success");
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML =
+              '<i class="fa-solid fa-download"></i> Download PPTX';
+            btn.classList.remove("success");
+          }, 3000);
+        } catch (e) {
+          console.error(e);
+          btn.innerHTML =
+            '<i class="fa-solid fa-xmark"></i> Error \u2014 check console';
+          setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML =
+              '<i class="fa-solid fa-download"></i> Download PPTX';
+          }, 3000);
+        }
+      });
+    </script>
+  </body>
+</html>

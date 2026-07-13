@@ -62,17 +62,25 @@ jobs:
       # URL (including any PAT for private repos) is never exposed.
       # Format for private repo: https://<PAT>@github.com/user/repo.git
       # Format for public repo:  https://github.com/user/repo.git
-      - name: Clone target repository
+      - name: Clone target repository (full history for secret scanning)
+        # No --depth flag: full git history is required so that Gitleaks
+        # --log-opts="--all" can scan every commit, not just the tip.
+        # Secrets removed in a recent commit are still live in history.
         run: |
-          git clone "${{ secrets.TARGET_REPO_URL }}" .repo_cache --quiet
+          git clone "${{ secrets.TARGET_REPO_URL }}" .repo_cache
           echo "Cloned successfully"
           echo "Commits available: $(git -C .repo_cache log --oneline | wc -l)"
+          echo "Oldest commit: $(git -C .repo_cache log --oneline | tail -1)"
 
       # ── 5. Run pipeline on the triggering commit ──────────────
       - name: Run SecurePipeline Hub on commit
         id: pipeline
         env:
           FINDINGS_DIR: ${{ github.workspace }}/data/findings
+          # Controls how far back Gitleaks scans git history (days).
+          # Override in repo Settings → Secrets and variables → Actions
+          # → Variables if you want a full scan (set to a large number).
+          GITLEAKS_HISTORY_DAYS: ${{ vars.GITLEAKS_HISTORY_DAYS || '90' }}
         run: |
           python processing/commit_scanner.py \
             --sha      "${{ github.sha }}" \

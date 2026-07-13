@@ -105,14 +105,23 @@ def scan_commit(sha, repo_dir, codeowners_path=None):
         )
 
         # ── Gitleaks ─────────────────────────────────────────
-        print(f"  [2/3] Gitleaks...")
+        # Run in git-history mode (not working-directory mode) so that
+        # secrets committed in older commits and later "deleted" are still
+        # caught. --log-opts restricts the scan to commits reachable from
+        # HEAD that are not older than 90 days, keeping CI fast while
+        # covering the realistic window of exposure. Remove --since if you
+        # want a full history scan (slower on large repos).
+        print(f"  [2/3] Gitleaks (full history)...")
         gl_config = os.path.join(PROJECT_ROOT, "scanners", "gitleaks.toml")
         gl_config_flag = f"--config {gl_config}" if os.path.exists(gl_config) else ""
+        history_days = int(os.environ.get('GITLEAKS_HISTORY_DAYS', '90'))
         run_cmd(
-            f"gitleaks detect --source . {gl_config_flag} "
-            f"--report-format json --report-path {gl_out} --exit-code 0",
+            f'gitleaks detect --source . {gl_config_flag} '
+            f'--log-opts="--since={history_days}.days.ago --all" '
+            f'--report-format json --report-path {gl_out} --exit-code 0',
             cwd=repo_dir, check=False
         )
+        print(f"       (scanned git history: last {history_days} days)")
 
         # ── Trivy ────────────────────────────────────────────
         print(f"  [3/3] Trivy...")
@@ -147,6 +156,11 @@ def scan_commit(sha, repo_dir, codeowners_path=None):
             f['ci_author']       = meta['author']
             f['ci_date']         = meta['date']
             f['ci_message']      = meta['message']
+            # commit_introduced is populated by parse_gitleaks from the
+            # "Commit" field in Gitleaks history-mode output. For non-
+            # Gitleaks findings it stays None (set in normalizer).
+            # Do not overwrite if already set by the parser.
+            f.setdefault('commit_introduced', None)
 
         # ── Run processing chain ──────────────────────────────
         p_normalized = os.path.join(tmpdir, "normalized.json")
