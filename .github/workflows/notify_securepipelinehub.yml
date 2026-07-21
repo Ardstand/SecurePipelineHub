@@ -1,0 +1,44 @@
+# .github/workflows/notify-securepipelinehub.yml
+# Place this file in YOUR TARGET REPO (e.g. Juice Shop or your app repo).
+#
+# Every time code is pushed to any branch, this workflow fires a
+# repository_dispatch event to SecurePipelineHub so it knows to scan
+# the new commit. SecurePipelineHub then clones this repo at the pushed
+# SHA, runs all scanners, and commits findings back to its own repo.
+#
+# Required secret in the TARGET repo:
+#   SECUREPIPELINEHUB_PAT — a GitHub Personal Access Token with
+#                            repo scope on the SecurePipelineHub repo.
+#   SECUREPIPELINEHUB_REPO — owner/repo of SecurePipelineHub
+#                             e.g. "your-username/SecurePipelineHub"
+
+name: Notify SecurePipelineHub
+
+on:
+    push:
+        branches: ["**"] # trigger on pushes to any branch
+
+jobs:
+    notify:
+        name: Dispatch scan to SecurePipelineHub
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Send repository_dispatch to SecurePipelineHub
+              run: |
+                  curl -s -X POST \
+                    -H "Accept: application/vnd.github+json" \
+                    -H "Authorization: Bearer ${{ secrets.SECUREPIPELINEHUB_PAT }}" \
+                    -H "X-GitHub-Api-Version: 2022-11-28" \
+                    "https://api.github.com/repos/${{ secrets.SECUREPIPELINEHUB_REPO }}/dispatches" \
+                    -d '{
+                      "event_type": "target-repo-push",
+                      "client_payload": {
+                        "sha":    "${{ github.sha }}",
+                        "ref":    "${{ github.ref }}",
+                        "repo":   "${{ github.repository }}",
+                        "actor":  "${{ github.actor }}",
+                        "message": "${{ github.event.head_commit.message }}"
+                      }
+                    }'
+                  echo "Dispatch sent for ${{ github.sha }}"

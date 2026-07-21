@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getFindings, getStats } from "../api";
+import { getFindings, getStats, getSyncStatus } from "../api";
+import { RefreshContext } from "../App";
 
 const PAGE_SIZE = 20;
 
@@ -121,6 +122,24 @@ function FPIcon() {
     </svg>
   );
 }
+function GitIcon() {
+  return (
+    <svg
+      width="11"
+      height="11"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="3" />
+      <line x1="3" y1="12" x2="9" y2="12" />
+      <line x1="15" y1="12" x2="21" y2="12" />
+    </svg>
+  );
+}
 
 const fieldStyle = {
   backgroundColor: "var(--bg-hover)",
@@ -134,6 +153,7 @@ const fieldStyle = {
 
 export default function FindingsTable() {
   const navigate = useNavigate();
+  const { refreshKey } = React.useContext(RefreshContext);
   const [searchParams, setSearchParams] = useSearchParams();
   const complianceTag = searchParams.get("tag") ?? "";
 
@@ -151,6 +171,7 @@ export default function FindingsTable() {
   const [error, setError] = useState("");
   const [findings, setFindings] = useState([]);
   const [total, setTotal] = useState(0);
+  const [syncStatus, setSyncStatus] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -238,11 +259,29 @@ export default function FindingsTable() {
     query,
     complianceTag,
     showFP,
+    refreshKey,
   ]);
 
   useEffect(() => {
     setPage(0);
   }, [severity, source, priority, slaStatus, query, complianceTag, showFP]);
+
+  // Poll sync status every 30s to keep the target commit banner current
+  useEffect(() => {
+    let alive = true;
+    async function fetchSync() {
+      try {
+        const s = await getSyncStatus();
+        if (alive) setSyncStatus(s);
+      } catch (_) {}
+    }
+    fetchSync();
+    const interval = setInterval(fetchSync, 30000);
+    return () => {
+      alive = false;
+      clearInterval(interval);
+    };
+  }, [refreshKey]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const clearTag = () => {
@@ -370,6 +409,74 @@ export default function FindingsTable() {
         )}
       </div>
 
+      {/* Target repo commit banner */}
+      {syncStatus?.target_repo_short && (
+        <div
+          style={{
+            backgroundColor: "var(--bg-card)",
+            border: "1px solid var(--border)",
+            borderRadius: 10,
+            padding: "10px 16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <GitIcon />
+          <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+            Latest scanned commit:
+          </span>
+          <span
+            style={{
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              color: "var(--accent)",
+              fontWeight: 600,
+            }}
+          >
+            {syncStatus.target_repo_short}
+          </span>
+          {syncStatus.target_repo_message && (
+            <span
+              style={{
+                color: "var(--text-secondary)",
+                fontSize: 12,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                maxWidth: 320,
+              }}
+              title={syncStatus.target_repo_message}
+            >
+              — {syncStatus.target_repo_message.slice(0, 72)}
+              {syncStatus.target_repo_message.length > 72 ? "…" : ""}
+            </span>
+          )}
+          {syncStatus.target_repo_author && (
+            <span
+              style={{
+                color: "var(--text-muted)",
+                fontSize: 11,
+                marginLeft: "auto",
+                whiteSpace: "nowrap",
+              }}
+            >
+              by {syncStatus.target_repo_author.split("@")[0]}
+              {syncStatus.target_repo_date && (
+                <>
+                  {" "}
+                  ·{" "}
+                  {new Date(syncStatus.target_repo_date).toLocaleDateString(
+                    "en-IE",
+                    { day: "2-digit", month: "short", year: "numeric" },
+                  )}
+                </>
+              )}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Table */}
       <div className="card overflow-hidden">
         <div
@@ -410,6 +517,7 @@ export default function FindingsTable() {
                   "Assignee",
                   "SLA",
                   "Due",
+                  "Commit",
                 ].map((h) => (
                   <th
                     key={h}
@@ -428,7 +536,7 @@ export default function FindingsTable() {
               {loading ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     style={{ color: "var(--text-muted)" }}
                     className="px-4 py-10 text-center text-sm"
                   >
@@ -454,7 +562,7 @@ export default function FindingsTable() {
               ) : findings.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={8}
                     style={{ color: "var(--text-muted)" }}
                     className="px-4 py-10 text-center text-sm"
                   >
@@ -540,13 +648,15 @@ export default function FindingsTable() {
                           style={{ color: "var(--text-secondary)" }}
                           className="text-xs truncate"
                         >
-                          {f.assignee}
+                          {f.ci_author ?? f.assignee}
                         </div>
                         <div
                           style={{ color: "var(--text-muted)" }}
                           className="text-[11px]"
                         >
-                          {f.assignee_team}
+                          {f.ci_author
+                            ? f.ci_author.split("@")[0]
+                            : f.assignee_team}
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -574,6 +684,46 @@ export default function FindingsTable() {
                         className="px-4 py-3 text-xs whitespace-nowrap"
                       >
                         {formatDate(f.due_date)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {f.ci_short_sha ? (
+                          <div>
+                            <a
+                              href={`https://github.com/${process.env.REACT_APP_TARGET_REPO}/commit/${f.ci_commit_sha}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ color: "var(--accent)" }}
+                              className="inline-flex items-center gap-1 font-mono text-[11px] hover:underline"
+                            >
+                              <GitIcon />
+                              {f.ci_short_sha}
+                            </a>
+                            <div
+                              style={{ color: "var(--text-muted)" }}
+                              className="text-[11px] mt-0.5 truncate max-w-[120px]"
+                              title={f.ci_message}
+                            >
+                              {f.ci_message
+                                ? f.ci_message.slice(0, 40) +
+                                  (f.ci_message.length > 40 ? "…" : "")
+                                : ""}
+                            </div>
+                            <div
+                              style={{ color: "var(--text-muted)" }}
+                              className="text-[10px] mt-0.5 truncate max-w-[120px]"
+                            >
+                              {f.ci_author ? f.ci_author.split("@")[0] : ""}
+                            </div>
+                          </div>
+                        ) : (
+                          <span
+                            style={{ color: "var(--text-muted)" }}
+                            className="text-[11px]"
+                          >
+                            —
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
