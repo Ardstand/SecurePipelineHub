@@ -24,7 +24,7 @@ from pathlib import Path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from processing.normalizer import parse_semgrep, parse_gitleaks, parse_trivy
+from processing.normalizer import parse_semgrep, parse_gitleaks, parse_trivy, parse_dependency_check, parse_zap
 from processing.risk_engine import run_risk_engine
 from processing.ownership_engine import run_ownership_engine
 from processing.sla_engine import run_sla_engine
@@ -68,7 +68,7 @@ def already_scanned(sha):
     return os.path.exists(os.path.join(storage_dir, f"findings_ci_{short}.json"))
 
 
-def scan_commit(sha, repo_dir, codeowners_path=None):
+def scan_commit(sha, repo_dir, codeowners_path=None, **kwargs):
     """
     Checkout repo_dir at `sha`, run all three scanners,
     run the full pipeline, save findings.
@@ -84,19 +84,47 @@ def scan_commit(sha, repo_dir, codeowners_path=None):
     print(f"  Date    : {meta['date']}")
     print(f"  Message : {meta['message'][:60]}")
 
-    # Checkout this commit (detached HEAD)
-    _, rc = run_cmd(f"git checkout {sha} --quiet", cwd=repo_dir, check=False)
+    # Checkout this commit (detached HEAD).
+    # We use fetch + checkout to ensure the SHA is available even if
+    # the repo is in a detached HEAD state from a previous scan.
+    # This must be a SHA from the TARGET repo — not SecurePipelineHub.
+    # Remove any git lock files left by a previous interrupted scan
+    import glob as _glob
+    for lf in _glob.glob(os.path.join(repo_dir, ".git", "*.lock")):
+        try:
+            os.remove(lf)
+            print(f"  [INFO] Removed git lock file: {os.path.basename(lf)}")
+        except Exception:
+            pass
+
+    # Fetch latest refs then checkout in detached HEAD mode
+    run_cmd("git fetch --all --quiet", cwd=repo_dir, check=False)
+    checkout_out, rc = run_cmd(
+        f"git checkout --detach {sha} --quiet 2>&1",
+        cwd=repo_dir, check=False
+    )
     if rc != 0:
-        print(f"[ERROR] Could not checkout {short} — skipping")
+        print(f"[ERROR] Could not checkout {short} in {repo_dir}")
+        print(f"[ERROR] Git output: {checkout_out}")
+        print(f"[ERROR] Make sure --sha is a commit from the TARGET repo, not SecurePipelineHub.")
+        available, _ = run_cmd("git log --oneline -5", cwd=repo_dir, check=False)
+        print(f"[ERROR] Last 5 commits in target repo:\n{available}")
         return [], 0
 
     with tempfile.TemporaryDirectory() as tmpdir:
         sg_out  = os.path.join(tmpdir, "semgrep.json")
         gl_out  = os.path.join(tmpdir, "gitleaks.json")
         tv_out  = os.path.join(tmpdir, "trivy.json")
+        # pip-audit writes its output directly into .repo_cache in CI,
+        # but when running locally we run it here and write to tmpdir.
+        pa_out  = os.path.join(repo_dir, "pip-audit.json")
+        pa_tmp  = os.path.join(tmpdir, "pip-audit.json")
+        # ZAP writes its output into .repo_cache in CI (via Docker volume mount).
+        # No local fallback — ZAP requires a running app to scan.
+        zap_out = os.path.join(repo_dir, "zap-report.json")
 
         # ── Semgrep ──────────────────────────────────────────
-        print(f"  [1/3] Semgrep...")
+        print(f"  [1/5] Semgrep...")
         run_cmd(
             f"semgrep scan . "
             f"--config p/python --config p/secrets --config p/owasp-top-ten "
@@ -111,7 +139,7 @@ def scan_commit(sha, repo_dir, codeowners_path=None):
         # HEAD that are not older than 90 days, keeping CI fast while
         # covering the realistic window of exposure. Remove --since if you
         # want a full history scan (slower on large repos).
-        print(f"  [2/3] Gitleaks (full history)...")
+        print(f"  [2/5] Gitleaks (full history)...")
         gl_config = os.path.join(PROJECT_ROOT, "scanners", "gitleaks.toml")
         gl_config_flag = f"--config {gl_config}" if os.path.exists(gl_config) else ""
         history_days = int(os.environ.get('GITLEAKS_HISTORY_DAYS', '90'))
@@ -124,20 +152,59 @@ def scan_commit(sha, repo_dir, codeowners_path=None):
         print(f"       (scanned git history: last {history_days} days)")
 
         # ── Trivy ────────────────────────────────────────────
-        print(f"  [3/3] Trivy...")
+        print(f"  [3/5] Trivy...")
         run_cmd(
             f"trivy fs . --format json --output {tv_out} --quiet",
             cwd=repo_dir, check=False
         )
 
+        # ── pip-audit ────────────────────────────────────────
+        # In CI, pip-audit runs as a separate workflow step and writes
+        # pip-audit.json directly into .repo_cache before commit_scanner
+        # is invoked. When running locally (backfill / manual scan),
+        # we run pip-audit here against any requirements file we find.
+        print(f"  [4/4] pip-audit...")
+        if not os.path.exists(pa_out):
+            # Local run — find dependency file and run pip-audit ourselves
+            dep_file = None
+            for candidate in ["requirements.txt", "pyproject.toml", "setup.cfg"]:
+                if os.path.exists(os.path.join(repo_dir, candidate)):
+                    dep_file = candidate
+                    break
+            if dep_file:
+                run_cmd(
+                    f"pip-audit -r {dep_file} --format json --output {pa_tmp} "
+                    f"--skip-editable --progress-spinner off",
+                    cwd=repo_dir, check=False
+                )
+                pa_out_final = pa_tmp
+            else:
+                print(f"       pip-audit: no requirements file found — skipping")
+                pa_out_final = None
+        else:
+            # CI run — use the file already written by the workflow step
+            pa_out_final = pa_out
+
+        # ── ZAP ──────────────────────────────────────────────
+        # ZAP runs as a Docker container in CI against the live app.
+        # When running locally (backfill), ZAP output won't exist —
+        # we skip it gracefully rather than erroring.
+        print(f"  [5/5] OWASP ZAP...")
+        if os.path.exists(zap_out):
+            print(f"       ZAP report found — parsing")
+        else:
+            print(f"       ZAP report not found — skipping (requires live app in CI)")
+
         # ── Parse scanner outputs ─────────────────────────────
         findings = []
         for parser, path, name in [
-            (parse_semgrep,  sg_out, "semgrep"),
-            (parse_gitleaks, gl_out, "gitleaks"),
-            (parse_trivy,    tv_out, "trivy"),
+            (parse_semgrep,          sg_out,        "semgrep"),
+            (parse_gitleaks,         gl_out,        "gitleaks"),
+            (parse_trivy,            tv_out,        "trivy"),
+            (parse_dependency_check, pa_out_final,  "pip-audit"),
+            (parse_zap,              zap_out,       "zap"),
         ]:
-            if os.path.exists(path):
+            if path and os.path.exists(path):
                 parsed = parser(path)
                 print(f"       {name}: {len(parsed)} findings")
                 findings.extend(parsed)
@@ -221,6 +288,22 @@ def scan_commit(sha, repo_dir, codeowners_path=None):
                 "author":        meta['author'],
                 "date":          meta['date'],
                 "message":       meta['message'],
+                "total":         len(final_findings),
+                "by_priority":   by_priority,
+                "findings_file": os.path.basename(filepath),
+                "blocked":       critical > 0
+            }, fp, indent=2)
+
+        # Write latest_scan.json so the Flask poller and dashboard
+        # can surface the most recently scanned target repo commit.
+        latest_path = os.path.join(get_storage_dir(), "latest_scan.json")
+        with open(latest_path, "w") as fp:
+            json.dump({
+                "commit_sha":    sha,
+                "short_sha":     short,
+                "author":        meta["author"],
+                "date":          meta["date"],
+                "message":       meta["message"],
                 "total":         len(final_findings),
                 "by_priority":   by_priority,
                 "findings_file": os.path.basename(filepath),

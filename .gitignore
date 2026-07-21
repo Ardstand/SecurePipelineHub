@@ -27,6 +27,7 @@ share/python-wheels/
 MANIFEST
 data_test/
 data/
+.repo_cache/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
